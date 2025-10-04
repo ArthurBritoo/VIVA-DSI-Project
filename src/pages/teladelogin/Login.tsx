@@ -46,7 +46,7 @@ export default function Login({ navigation }: LoginProps) {
       const userCredential = await signInWithEmailAndPassword(auth, email, senha);
       // User is signed in. The onAuthStateChanged listener in UserContext will handle setting the currentUser.
       Alert.alert('Login realizado', `Bem-vindo!`);
-      navigation.navigate('Home');https://console.firebase.google.com/project/dsi-viva/authentication/users?hl=pt-br
+      navigation.navigate('Home');//https://console.firebase.google.com/project/dsi-viva/authentication/users?hl=pt-br
     } catch (error: any) {
       let errorMessage = 'Ocorreu um erro ao fazer login. Tente novamente.';
       if (error.code === 'auth/invalid-email') {

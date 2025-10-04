@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useUserContext } from '../../contexts/UserContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "../../firebaseConfig";
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { IconButton } from 'react-native-paper';
+
 
 type RootStackParamList = {
   Login: undefined;
@@ -19,33 +23,30 @@ interface RedefinirSenhaProps {
 
 export default function Redefinirsenha({ navigation }: RedefinirSenhaProps) {
   const [email, setEmail] = useState('');
-  const [novaSenha, setNovaSenha] = useState('');
-  const [repitaSenha, setRepitaSenha] = useState('');
-  const { users, setCurrentUser, setUsers } = useUserContext();
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleRedefinir = () => {
-    if (!email || !novaSenha || !repitaSenha) {
-      Alert.alert('Erro', 'Preencha todos os campos');
-      return;
-    }
-    if (novaSenha !== repitaSenha) {
-      Alert.alert('Erro', 'As senhas não coincidem');
-      return;
-    }
+  
 
-    const userIndex = users.findIndex((u) => u.email === email);
-    if (userIndex === -1) {
-      Alert.alert('Erro', 'E-mail não cadastrado');
+  const handleRedefinir = async () => {
+    
+    if (!email) {
+      Alert.alert('Erro', 'Por favor, preencha o campo de e-mail.');
       return;
     }
 
-    const novosUsuarios = users.map((u, idx) =>
-      idx === userIndex ? { ...u, senha: novaSenha } : u
-    );
-    if (setUsers) setUsers(novosUsuarios);
-    Alert.alert('Sucesso', 'Senha redefinida com sucesso!');
-    setCurrentUser(null);
-    navigation.navigate('Login');
+    setLoading(true);
+    setShowSuccessMessage(false); // Hide any previous success message
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setShowSuccessMessage(true);
+      
+    } catch (error: any) {
+      Alert.alert('Erro', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,41 +59,52 @@ export default function Redefinirsenha({ navigation }: RedefinirSenhaProps) {
         <Text style={styles.headerTitle}>Redefinir Senha</Text>
       </View>
 
-      {/* Main */}
-      <View style={styles.main}>
-        <Image source={require('../../assets/logo_transparente.png')} style={{ width: 120, height: 120, marginBottom: 30 }} resizeMode="contain" />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#9ca3af"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Nova Senha"
-          placeholderTextColor="#9ca3af"
-          value={novaSenha}
-          onChangeText={setNovaSenha}
-          secureTextEntry
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Repita a Senha"
-          placeholderTextColor="#9ca3af"
-          value={repitaSenha}
-          onChangeText={setRepitaSenha}
-          secureTextEntry
-        />
+      {/* Main Content */}
+      <View style={styles.mainContent}>
+        {!showSuccessMessage && (
+          <Image 
+            source={require('../../assets/logo_transparente.png')} 
+            style={styles.logo}
+            resizeMode="contain" 
+          />
+        )}
+
+        {showSuccessMessage ? (
+          <View style={styles.successContainer}>
+            <IconButton
+              icon="check-circle"
+              size={40}
+              iconColor="green"
+            />
+            <Text style={styles.successText}>Um e-mail de redefinição de senha foi enviado para o seu endereço de e-mail.</Text>
+          </View>
+        ) : (
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Redefinir sua Senha</Text>
+            <Text style={styles.instructionText}>Por favor, insira seu e-mail para redefinir sua senha.</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#9ca3af"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              editable={!loading}
+            />
+            <TouchableOpacity style={styles.redefinirButton} onPress={handleRedefinir} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.redefinirButtonText}>Redefinir Senha</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.redefinirButton} onPress={handleRedefinir}>
-          <Text style={styles.redefinirButtonText}>Redefinir Senha</Text>
-        </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
           <Text style={styles.signUpText}>
             Lembrou da senha?{" "}
@@ -126,11 +138,32 @@ const styles = StyleSheet.create({
     color: "#111",
     paddingRight: 24,
   },
-  main: {
+  mainContent: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 30,
+  },
+  formContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#111",
+    marginBottom: 10,
+  },
+  instructionText: {
+    fontSize: 16,
+    color: "#4b5563",
+    textAlign: "center",
+    marginBottom: 20,
   },
   input: {
     width: "100%",
@@ -151,6 +184,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    width: "100%",
   },
   redefinirButtonText: {
     color: "#fff",
@@ -166,5 +200,19 @@ const styles = StyleSheet.create({
   signUpLink: {
     fontWeight: "bold",
     color: "#137fec",
+  },
+  successContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  successText: {
+    fontSize: 20,
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginTop: 20,
+    fontWeight: 'bold',
   },
 });
