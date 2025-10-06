@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { UserProvider } from './src-new/contexts/UserContext';
-import Login from './src-new/views/Login';
-import Cadastro from './src-new/views/Cadastro';
-import Home from './src-new/views/Home';
-import Buscar from './src-new/views/Buscar';
-import Perfil from './src-new/views/Perfil';
-import RedefinirSenha from './src-new/views/Redefinirsenha';
+import { UserProvider } from './src/contexts/UserContext';
+import Login from './src/views/Login';
+import Cadastro from './src/views/Cadastro';
+import Home from './src/views/Home';
+import Buscar from './src/views/Buscar';
+import Perfil from './src/views/Perfil';
+import RedefinirSenha from './src/views/Redefinirsenha';
 
 const Stack = createNativeStackNavigator();
 
