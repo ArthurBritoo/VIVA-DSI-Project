@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { auth, db } from '../firebaseConfig';
+import { auth, db } from '../assets/firebaseConfig';
 import { onAuthStateChanged, User as FirebaseAuthUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -8,7 +8,7 @@ type UserProfile = {
   email: string;
   nome: string;
   telefone?: string;
-  // Add any other profile fields you store in Firestore
+  foto?: string;
 };
 
 type UserContextType = {
@@ -25,34 +25,35 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Firebase user:', firebaseUser);
       if (firebaseUser) {
-        // User is signed in, fetch their profile from Firestore
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          setCurrentUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '', // Fallback for email if not present
-            nome: userData.displayName || userData.nome || firebaseUser.email?.split('@')[0] || '', // Prioritize displayName, then nome, then part of email
-            telefone: userData.telefone || undefined,
-          });
-        } else {
-          // User authenticated but no profile in Firestore (shouldn't happen with our createUser function)
+          console.log('User data from Firestore:', userData);
           setCurrentUser({
             uid: firebaseUser.uid,
             email: firebaseUser.email || '',
-            nome: firebaseUser.email?.split('@')[0] || '', // Default name from email
+            nome: userData.nome || firebaseUser.email?.split('@')[0] || '',
+            telefone: userData.telefone || undefined,
+          });
+        } else {
+          console.warn('No user profile found in Firestore');
+          setCurrentUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            nome: firebaseUser.email?.split('@')[0] || '',
           });
         }
       } else {
-        // User is signed out
+        console.log('User signed out');
         setCurrentUser(null);
       }
       setLoadingUser(false);
     });
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   return (

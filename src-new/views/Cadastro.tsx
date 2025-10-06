@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useUserContext } from '../../contexts/UserContext';
+import { useUserContext } from '../contexts/UserContext';
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from '../../firebaseConfig';
+import { auth, db } from '../assets/firebaseConfig';
 
 type RootStackParamList = {
   Login: undefined;

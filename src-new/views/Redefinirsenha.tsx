@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, Acti
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../../firebaseConfig";
+import { auth } from "../assets/firebaseConfig";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { IconButton } from 'react-native-paper';
 

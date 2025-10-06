@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useUserContext } from '../../contexts/UserContext';
+import { useUserContext } from '../contexts/UserContext';
 
 // Defina o tipo RootStackParamList com todas as rotas disponíveis no seu stack
 type RootStackParamList = {
@@ -39,7 +39,7 @@ export default function Perfil() {
           <View style={styles.profileSection}>
             <Image
               source={{
-                uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuDOepyiX5C3XvREM1UaHTczoSJWAdEOyWp5IZIC19RPpmHR-SI3uXGjAMbNo1IcFLhQU_X0Biyhet1Sw7fTb5HOKQfA20ZcSMtjsEyghyUA2iV_DJ_F2xtMm20L25PGawSeC5lggQbbcsCxflfuD2ugEhzVqWyptplUyNJe0Z_aV7K8cMTTlfdM41RBhEq_XjqAngqcrsqJo2_HChWebXdufk-0ADvKxZqrnts_XLT7KGUE7jl0mg4ZahFDHE4dh8Y65cfY-B_3Awg",
+                uri: currentUser?.foto || "https://lh3.googleusercontent.com/aida-public/AB6AXuDOepyiX5C3XvREM1UaHTczoSJWAdEOyWp5IZIC19RPpmHR-SI3XGjAMbNo1IcFLhQU_X0Biyhet1Sw7fTb5HOKQfA20ZcSMtjsEyghyUA2iV_DJ_F2xtMm20L25PGawSeC5lggQbbcsCxflfuD2ugEhzVqWyptplUyNJe0Z_aV7K8cMTTlfdM41RBhEq_XjqAngqcrsqJo2_HChWebXdufk-0ADvKxZqrnts_XLT7KGUE7jl0mg4ZahFDHE4dh8Y65cfY-B_3Awg",
               }}
               style={styles.avatar}
             />

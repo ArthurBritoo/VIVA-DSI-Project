@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useUserContext } from '../../contexts/UserContext';
+import { useUserContext } from '../contexts/UserContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from '../../firebaseConfig';
+import { auth } from '../assets/firebaseConfig';
 
 type RootStackParamList = {
   Login: undefined;
