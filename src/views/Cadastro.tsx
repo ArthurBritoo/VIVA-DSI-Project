@@ -11,7 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useUserContext } from '../../contexts/UserContext';
+import { useUserContext } from '../contexts/UserContext';
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from '../assets/firebaseConfig';
 
 type RootStackParamList = {
   Login: undefined;
@@ -34,9 +37,8 @@ export default function Cadastro({ navigation }: CadastroProps) {
   const [telefone, setTelefone] = useState('');
   const [senha, setSenha] = useState('');
   const [repitaSenha, setRepitaSenha] = useState('');
-  const { addUser, users } = useUserContext();
 
-  const handleCadastro = () => {
+  const handleCadastro = async () => {
     if (!nome || !email || !telefone || !senha || !repitaSenha) {
       Alert.alert('Erro', 'Preencha todos os campos');
       return;
@@ -45,13 +47,34 @@ export default function Cadastro({ navigation }: CadastroProps) {
       Alert.alert('Erro', 'As senhas não coincidem');
       return;
     }
-    if (users.some((u) => u.email === email)) {
-      Alert.alert('Erro', 'Email já cadastrado');
-      return;
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+      const user = userCredential.user;
+
+      // Store additional user profile information in Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        nome: nome,
+        email: email,
+        telefone: telefone,
+        createdAt: new Date(),
+      });
+
+      Alert.alert('Sucesso', 'Cadastro realizado!');
+      navigation.navigate('Login');
+    } catch (error: any) {
+      let errorMessage = 'Ocorreu um erro ao cadastrar. Tente novamente.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'O email já está em uso por outra conta.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'O formato do email é inválido.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+      }
+      Alert.alert('Erro de Cadastro', errorMessage);
+      console.error("Registration Error:", error.message);
     }
-    addUser({ nome, email, telefone, senha });
-    Alert.alert('Sucesso', 'Cadastro realizado!');
-    navigation.navigate('Login');
   };
 
   return (

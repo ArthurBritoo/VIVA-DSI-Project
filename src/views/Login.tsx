@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useUserContext } from '../../contexts/UserContext';
+import { useUserContext } from '../contexts/UserContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from '../assets/firebaseConfig';
 
 type RootStackParamList = {
   Login: undefined;
@@ -20,21 +22,44 @@ interface LoginProps {
 export default function Login({ navigation }: LoginProps) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const { users, setCurrentUser } = useUserContext();
+  const [emailError, setEmailError] = useState(false);
+  const [senhaError, setSenhaError] = useState(false);
+  const { setCurrentUser } = useUserContext(); // Only need setCurrentUser for manual update if necessary, but onAuthStateChanged handles it
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    setEmailError(false);
+    setSenhaError(false);
+
+    if (!email) {
+      setEmailError(true);
+    }
+    if (!senha) {
+      setSenhaError(true);
+    }
+
     if (!email || !senha) {
-      Alert.alert('Erro', 'Preencha email e senha');
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
-    const user = users.find((u) => u.email === email && u.senha === senha);
-    if (user) {
-      setCurrentUser(user);
-      Alert.alert('Login realizado', `Bem-vindo, ${user.nome}!`);
-      navigation.navigate('Home');
-    } else {
-      Alert.alert('Erro', 'Email ou senha incorretos');
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+      // User is signed in. The onAuthStateChanged listener in UserContext will handle setting the currentUser.
+      Alert.alert('Login realizado', `Bem-vindo!`);
+      navigation.navigate('Home');//https://console.firebase.google.com/project/dsi-viva/authentication/users?hl=pt-br
+    } catch (error: any) {
+      let errorMessage = 'Ocorreu um erro ao fazer login. Tente novamente.';
+      if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Email inválido.';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'Usuário desativado.';
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        errorMessage = 'Email ou senha incorretos.';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Credenciais inválidas. Verifique seu email e senha.';
+      }
+      Alert.alert('Erro de Login', errorMessage);
+      console.error("Login Error:", error.message);
     }
   };
 
@@ -52,21 +77,23 @@ export default function Login({ navigation }: LoginProps) {
       <View style={styles.main}>
         <Image source={require('../../assets/logo_transparente.png')} style={{ width: 120, height: 120, marginBottom: 30 }} resizeMode="contain" />
         <TextInput
-          style={styles.input}
+          style={[styles.input, emailError && styles.inputError]}
           placeholder="Email"
           placeholderTextColor="#9ca3af"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
         />
+        {emailError && <Text style={styles.errorMessage}>Campo obrigatório*</Text>}
         <TextInput
-          style={styles.input}
+          style={[styles.input, senhaError && styles.inputError, { marginBottom: 16 } ]}
           placeholder="Senha"
           placeholderTextColor="#9ca3af"
           value={senha}
           onChangeText={setSenha}
           secureTextEntry
         />
+        {senhaError && <Text style={styles.errorMessage}>Campo obrigatório*</Text>}
         <TouchableOpacity onPress={() => navigation.navigate('RedefinirSenha')}>
           <Text style={styles.forgotPassword}>Esqueci a senha?</Text>
         </TouchableOpacity>
@@ -124,6 +151,17 @@ const styles = StyleSheet.create({
     color: "#111",
     marginBottom: 16,
     fontSize: 16,
+  },
+  inputError: {
+    borderColor: 'red',
+    borderWidth: 1,
+  },
+  errorMessage: {
+    color: 'red',
+    alignSelf: 'flex-start',
+    marginLeft: "10%",
+    marginBottom: 5,
+    marginTop: -10,
   },
   forgotPassword: {
     textAlign: "right",

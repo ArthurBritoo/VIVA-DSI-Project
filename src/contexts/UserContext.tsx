@@ -1,40 +1,63 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { auth, db } from '../assets/firebaseConfig';
+import { onAuthStateChanged, User as FirebaseAuthUser } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
-type User = {
-  nome: string;
+type UserProfile = {
+  uid: string;
   email: string;
-  telefone: string;
-  senha: string;
+  nome: string;
+  telefone?: string;
+  foto?: string;
 };
 
 type UserContextType = {
-  users: User[];
-  addUser: (user: User) => void;
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
-  currentUser: User | null;
-  setCurrentUser: (user: User | null) => void;
+  currentUser: UserProfile | null;
+  loadingUser: boolean;
+  setCurrentUser: (user: UserProfile | null) => void;
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize with a dummy user for testing
-  const [users, setUsers] = useState<User[]>([
-    {
-      nome: "Test User",
-      email: "test@example.com",
-      telefone: "1234567890",
-      senha: "password123"
-    }
-  ]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
-  const addUser = (user: User) => {
-    setUsers((prev) => [...prev, user]);
-  };
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Firebase user:', firebaseUser);
+      if (firebaseUser) {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          console.log('User data from Firestore:', userData);
+          setCurrentUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            nome: userData.nome || firebaseUser.email?.split('@')[0] || '',
+            telefone: userData.telefone || undefined,
+          });
+        } else {
+          console.warn('No user profile found in Firestore');
+          setCurrentUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            nome: firebaseUser.email?.split('@')[0] || '',
+          });
+        }
+      } else {
+        console.log('User signed out');
+        setCurrentUser(null);
+      }
+      setLoadingUser(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
-    <UserContext.Provider value={{ users, addUser, setUsers, currentUser, setCurrentUser }}>
+    <UserContext.Provider value={{ currentUser, loadingUser, setCurrentUser }}>
       {children}
     </UserContext.Provider>
   );
