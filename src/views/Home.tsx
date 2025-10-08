@@ -1,4 +1,5 @@
 import React from "react";
+import BottomNav from '../components/BottomNav';
 import {
   View,
   Text,
@@ -150,20 +151,7 @@ export default function App() {
       </ScrollView>
 
       {/* Bottom Nav */}
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navItem} onPress={()=> navigation.navigate('Buscar')}>
-          <Text style={styles.navIcon}>🔍</Text>
-          <Text style={styles.navLabel}>Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, ]} onPress={()=> navigation.navigate('Home')}>
-          <Text style={[styles.navIcon, { color: "#137fec" }]}>🏠</Text>
-          <Text style={[styles.navLabel, { color: "#137fec" }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={()=> navigation.navigate('Perfil')}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNav activeScreen="Home" />
     </SafeAreaView>
   );
 }
@@ -219,16 +207,5 @@ const styles = StyleSheet.create({
   savedTitle: { fontSize: 14, fontWeight: "bold" },
   savedDetails: { fontSize: 12, color: "#6b7280" },
   savedImage: { width: 100, height: 80, borderRadius: 8 },
-  navbar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderColor: "#e5e7eb",
-    height: 64,
-    backgroundColor: "#f6f7f8",
-  },
-  navItem: { alignItems: "center" },
-  navIcon: { fontSize: 20, color: "#6b7280" },
-  navLabel: { fontSize: 12, color: "#6b7280" },
+  
 });

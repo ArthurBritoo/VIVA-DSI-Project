@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserContext } from '../contexts/UserContext';
+import BottomNav from '../components/BottomNav';
 
 // Defina o tipo RootStackParamList com todas as rotas disponíveis no seu stack
 type RootStackParamList = {
@@ -39,7 +40,7 @@ export default function Perfil() {
           <View style={styles.profileSection}>
             <Image
               source={{
-                uri: currentUser?.foto || "https://lh3.googleusercontent.com/aida-public/AB6AXuDOepyiX5C3XvREM1UaHTczoSJWAdEOyWp5IZIC19RPpmHR-SI3XGjAMbNo1IcFLhQU_X0Biyhet1Sw7fTb5HOKQfA20ZcSMtjsEyghyUA2iV_DJ_F2xtMm20L25PGawSeC5lggQbbcsCxflfuD2ugEhzVqWyptplUyNJe0Z_aV7K8cMTTlfdM41RBhEq_XjqAngqcrsqJo2_HChWebXdufk-0ADvKxZqrnts_XLT7KGUE7jl0mg4ZahFDHE4dh8Y65cfY-B_3Awg",
+                uri: currentUser?.foto || "https://lh3.googleusercontent.com/aida-public/AB6AXuDOepyiX5C3XvREM1UaHTczoSJWAdEOyWp5IZIC19RPpmHR-SI3XGjAMbNo1IcFLhQU_X0Biyhet1Sw7fTb5HOKQfA20ZcSMtjsEyghyUA2iV_DJ_F2xtMm20L25PGawSeC5lggQbbcsCxflfuD2ugEhzV_DJ_F2xtMm20L25PGawSeC5lggQbbcsCxflfuD2ugEhzVqWyptplUyNJe0Z_aV7K8cMTTlfdM41RBhEq_XjqAngqcrsqJo2_HChWebXdufk-0ADvKxZqrnts_XLT7KGUE7jl0mg4ZahFDHE4dh8Y65cfY-B_3Awg",
               }}
               style={styles.avatar}
             />
@@ -54,21 +55,7 @@ export default function Perfil() {
         </View>
       </View>
 
-      {/* Menu de navegação */}
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Buscar')}>
-          <Text style={styles.navIcon}>🔍</Text>
-          <Text style={styles.navLabel}>Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem]} onPress={() => navigation.navigate('Home')}>
-          <Text style={[styles.navIcon, { color: '#137fec' }]}>🏠</Text>
-          <Text style={[styles.navLabel, { color: '#137fec' }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Perfil')}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNav activeScreen="Perfil" />
     </SafeAreaView>
   );
 }
@@ -82,14 +69,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)', // Simulating white/10
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Simulating white/80
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
-    paddingBottom: 12,
   },
   headerSpacer: {
     width: 40,
@@ -163,28 +145,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#4b5563',
-  },
-  navbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderColor: '#e5e7eb',
-    height: 64,
-    backgroundColor: '#f6f7f8',
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-  },
-  navItem: {
-    alignItems: 'center',
-  },
-  navIcon: {
-    fontSize: 20,
-    color: '#6b7280',
-  },
-  navLabel: {
-    fontSize: 12,
-    color: '#6b7280',
   },
 });
