@@ -13,7 +13,7 @@ import {
 import {SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons'; // Import Ionicons
+
 
 // Define the RootStackParamList type here
 type RootStackParamList = {
@@ -83,7 +83,7 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }}>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {/* Search */}
         <View style={styles.searchContainer}>
           <TextInput
@@ -114,7 +114,7 @@ export default function App() {
 
         {/* Recently Viewed */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recently Viewed</Text>
+          <Text style={styles.sectionTitle}>Vistos Recentemente</Text>
           <FlatList
             data={recentlyViewed}
             horizontal
@@ -134,7 +134,7 @@ export default function App() {
 
         {/* Saved Properties */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Saved Properties</Text>
+          <Text style={styles.sectionTitle}>Favoritos</Text>
           {savedProperties.map((item) => (
             <View key={item.id} style={styles.savedCard}>
               <View style={{ flex: 1 }}>
@@ -149,6 +149,11 @@ export default function App() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Floating Action Button */}
+      <TouchableOpacity style={styles.fab}>
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
 
       {/* Bottom Nav */}
       <BottomNav activeScreen="Home" />
@@ -187,6 +192,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
   },
+
+  fab: {
+    position: 'absolute',
+    width: 70,
+    height: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 20,
+    bottom: 90, // Adjust to be above the BottomNav
+    backgroundColor: '#137fec',
+    borderRadius: 40,
+    elevation: 8, // for Android shadow
+    shadowColor: '#000', // for iOS shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  fabText: {
+    fontSize: 40,
+    color: 'white',
+    fontWeight: 'bold',
+    lineHeight: 70, // Added to center the '+' vertically
+  },
+
   filterActive: { backgroundColor: "#dbeafe" },
   filterText: { fontSize: 14, color: "#111" },
   section: { padding: 16 },
