@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserContext } from '../contexts/UserContext';
-import BottomNav from '../components/BottomNav';
 
 // Defina o tipo RootStackParamList com todas as rotas disponíveis no seu stack
 type RootStackParamList = {
@@ -30,11 +29,7 @@ export default function Perfil() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.flexGrow}>
-        <View style={styles.header}>
-          <View style={styles.headerSpacer}></View>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <View style={styles.headerSpacer}></View>
-        </View>
+      <Header title="Perfil" onMenuPress={() => {}} />
 
         <View style={styles.main}>
           <View style={styles.profileSection}>
@@ -55,7 +50,21 @@ export default function Perfil() {
         </View>
       </View>
 
-      <BottomNav activeScreen="Perfil" />
+      {/* Menu de navegação */}
+      <View style={styles.navbar}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Buscar')}>
+          <Text style={styles.navIcon}>🔍</Text>
+          <Text style={styles.navLabel}>Search</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.navItem]} onPress={() => navigation.navigate('Home')}>
+          <Text style={[styles.navIcon, { color: '#137fec' }]}>🏠</Text>
+          <Text style={[styles.navLabel, { color: '#137fec' }]}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Perfil')}>
+          <Text style={styles.navIcon}>👤</Text>
+          <Text style={styles.navLabel}>Profile</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -69,20 +78,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)', // Simulating white/10
+    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Simulating white/80
     padding: 16,
+    paddingBottom: 12,
   },
   headerSpacer: {
     width: 40,
   },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-  },
+  
   main: {
     flex: 1,
     flexDirection: 'column',
@@ -145,5 +153,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#4b5563',
+  },
+  navbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderColor: '#e5e7eb',
+    height: 64,
+    backgroundColor: '#f6f7f8',
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+  },
+  navItem: {
+    alignItems: 'center',
+  },
+  navIcon: {
+    fontSize: 20,
+    color: '#6b7280',
+  },
+  navLabel: {
+    fontSize: 12,
+    color: '#6b7280',
   },
 });

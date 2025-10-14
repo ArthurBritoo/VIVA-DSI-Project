@@ -13,13 +13,14 @@ import {
 import {SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
+import { Ionicons } from '@expo/vector-icons'; // Import Ionicons
 
 // Define the RootStackParamList type here
 type RootStackParamList = {
   Home: undefined;
   Buscar: undefined;
   Perfil: undefined;
+  AnuncioDetail: { anuncioId: string };
   
 };
 
@@ -76,12 +77,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Home</Text>
-        <TouchableOpacity>
-          <Text style={styles.menuButton}>☰</Text>
-        </TouchableOpacity>
-      </View>
+      <Header title="Home" onMenuPress={() => {}} />
 
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {/* Search */}
@@ -111,6 +107,10 @@ export default function App() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity onPress={() => navigation.navigate('AnuncioDetail', { anuncioId: 'algumIDaqui' })}>
+          <Text >ver detalhe de anuncio </Text>
+        </TouchableOpacity>
 
         {/* Recently Viewed */}
         <View style={styles.section}>
@@ -156,22 +156,28 @@ export default function App() {
       </TouchableOpacity>
 
       {/* Bottom Nav */}
-      <BottomNav activeScreen="Home" />
+      <View style={styles.navbar}>
+        <TouchableOpacity style={styles.navItem} onPress={()=> navigation.navigate('Buscar')}>
+          <Text style={styles.navIcon}>🔍</Text>
+          <Text style={styles.navLabel}>Search</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.navItem, ]} onPress={()=> navigation.navigate('Home')}>
+          <Text style={[styles.navIcon, { color: "#137fec" }]}>🏠</Text>
+          <Text style={[styles.navLabel, { color: "#137fec" }]}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={()=> navigation.navigate('Perfil')}>
+          <Text style={styles.navIcon}>👤</Text>
+          <Text style={styles.navLabel}>Profile</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f6f7f8" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#f6f7f8",
-  },
-  headerTitle: { fontSize: 18, fontWeight: "bold" },
-  menuButton: { fontSize: 20 },
+  
+
   searchContainer: { padding: 16 },
   searchInput: {
     backgroundColor: "#e5e7eb",
@@ -236,5 +242,16 @@ const styles = StyleSheet.create({
   savedTitle: { fontSize: 14, fontWeight: "bold" },
   savedDetails: { fontSize: 12, color: "#6b7280" },
   savedImage: { width: 100, height: 80, borderRadius: 8 },
-  
+  navbar: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderColor: "#e5e7eb",
+    height: 64,
+    backgroundColor: "#f6f7f8",
+  },
+  navItem: { alignItems: "center" },
+  navIcon: { fontSize: 20, color: "#6b7280" },
+  navLabel: { fontSize: 12, color: "#6b7280" },
 });
