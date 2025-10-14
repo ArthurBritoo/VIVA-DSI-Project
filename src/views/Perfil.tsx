@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserContext } from '../contexts/UserContext';
+import Header  from "../components/Header";
+import BottomNav from "../components/BottomNav";
 
 // Defina o tipo RootStackParamList com todas as rotas disponíveis no seu stack
 type RootStackParamList = {
@@ -51,20 +53,7 @@ export default function Perfil() {
       </View>
 
       {/* Menu de navegação */}
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Buscar')}>
-          <Text style={styles.navIcon}>🔍</Text>
-          <Text style={styles.navLabel}>Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem]} onPress={() => navigation.navigate('Home')}>
-          <Text style={[styles.navIcon, { color: '#137fec' }]}>🏠</Text>
-          <Text style={[styles.navLabel, { color: '#137fec' }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Perfil')}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNav/>
     </SafeAreaView>
   );
 }

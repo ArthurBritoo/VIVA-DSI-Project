@@ -1,5 +1,4 @@
 import React from "react";
-import BottomNav from '../components/BottomNav';
 import {
   View,
   Text,
@@ -13,7 +12,8 @@ import {
 import {SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons'; // Import Ionicons
+import Header  from "../components/Header";
+import BottomNav from "../components/BottomNav";
 
 // Define the RootStackParamList type here
 type RootStackParamList = {
@@ -156,20 +156,7 @@ export default function App() {
       </TouchableOpacity>
 
       {/* Bottom Nav */}
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navItem} onPress={()=> navigation.navigate('Buscar')}>
-          <Text style={styles.navIcon}>🔍</Text>
-          <Text style={styles.navLabel}>Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, ]} onPress={()=> navigation.navigate('Home')}>
-          <Text style={[styles.navIcon, { color: "#137fec" }]}>🏠</Text>
-          <Text style={[styles.navLabel, { color: "#137fec" }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={()=> navigation.navigate('Perfil')}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNav/>
     </SafeAreaView>
   );
 }
