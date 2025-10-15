@@ -1,0 +1,13 @@
+connectorId: example
+generate:
+  javascriptSdk:
+    - outputDir: ../../src/dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ../..
+      react: false
+      angular: false
+    - outputDir: ../../VIVA-DSI-Project/src/dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ../../VIVA-DSI-Project
+      react: true
+      angular: false
