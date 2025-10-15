@@ -14,19 +14,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Header  from "../components/Header";
 import BottomNav from "../components/BottomNav";
-
-// Define the RootStackParamList type here
-type RootStackParamList = {
-  Home: undefined;
-  Buscar: undefined;
-  Perfil: undefined;
-  AnuncioDetail: { anuncioId: string };
-  
-};
+import { RootStackParamList } from "../types/navigation";
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
-
-
 
 const recentlyViewed = [
   {
@@ -48,7 +38,7 @@ const recentlyViewed = [
     title: "Urban Loft Living",
     price: "$320,000",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCtKiWs6Acr22jgJpEQoKEU8rF5dGFD7s479FS0FH_sSLbJUNgJKefIn1WebtDhbWEEt1EKxqptT0AuysOFnfHvXc3DoXTc91BNf__wV-KxczdWzlO2eFVqmrttBdbHXQitFViLFGg2ecIBr5jfH_9mjcLLeJopAIIPyAYN-5dF-Vu6lJdU0ziJTc1eO203OAZidqCWuQwutNKjmbPFsO1AC4dyqtT6YBNZLfwUlOVMHDyaYzsVCSs4PQ1KxdLiBebRW9dDC9dV7Tk",
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuCtKiWs6Acr22jgJpEQoKEU8rF5dGFD7s479FS0FH_sSLbJUNgJKefIn1WebtDhbWEEt1EKxqptT0AuysOFnfHvXc3DoXTc91BNf__wV-KxczdWzlO2eFVqmrttBdbHXQitFViLFGg2ecIBr5jfH_9mjcLLeJopAIIPyAYN-5dF-Vu6lJdU0ziJTc1eO203OAZidqCWuQwutNKjmbPFsO1AC4dyqtT6YBNZLfwUlOVMHDyaYzsVCSs4PQ1KxdLiBebRW9dDC9dV2Tk",
   },
 ];
 
@@ -67,12 +57,20 @@ const savedProperties = [
     title: "Charming Townhouse in Historic District",
     details: "3 beds · 2.5 baths · 1,800 sq ft",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavdOWvUUG9sl5cpQnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavOwuUUG9sl5cpQnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
   },
 ];
 
 export default function App() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
+
+  const handlePress = (tabName: keyof RootStackParamList) => {
+    if (tabName === 'AnuncioDetail') {
+      navigation.navigate('AnuncioDetail', {});
+    } else {
+      navigation.navigate(tabName, undefined);
+    }
+  };
   
   return (
     <SafeAreaView style={styles.container}>
@@ -108,7 +106,7 @@ export default function App() {
           ))}
         </View>
 
-        <TouchableOpacity onPress={() => navigation.navigate('AnuncioDetail', { anuncioId: 'algumIDaqui' })}>
+        <TouchableOpacity onPress={() => navigation.navigate('AnuncioDetail', { anuncioId: '1' })}>
           <Text >ver detalhe de anuncio </Text>
         </TouchableOpacity>
 
@@ -151,7 +149,7 @@ export default function App() {
       </ScrollView>
 
       {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab}>
+      <TouchableOpacity style={styles.fab} onPress={() =>  handlePress('AnuncioDetail')}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 

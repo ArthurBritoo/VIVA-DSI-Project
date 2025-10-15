@@ -6,6 +6,6 @@ export type RootStackParamList = {
     Buscar: undefined;
     Perfil: undefined;
     RedefinirSenha: undefined;
-    AnuncioDetail: { anuncioId: string }; // <- tela que recebe parâmetros
+    AnuncioDetail: { anuncioId?: string }; // Made anuncioId optional
   };
   
