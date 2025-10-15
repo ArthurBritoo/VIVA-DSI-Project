@@ -1,12 +1,13 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'; // For icons
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Button, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import BottomNav from '../components/BottomNav';
-// import Header from "../components/Header"; // We'll create a custom header for this screen
-import { MaterialCommunityIcons } from '@expo/vector-icons'; // For icons
 import { RootStackParamList } from '../types/navigation';
+// Mock image picker for demonstration
+import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 
 const { width } = Dimensions.get('window');
 
@@ -66,16 +67,24 @@ const fetchAnuncioById = async (id: string): Promise<Anuncio | null> => {
   });
 };
 
-const createAnuncioApi = async (anuncioData: Omit<Anuncio, 'id' | 'userId' | 'caracteristicas' | 'imageUrl' | 'mapImageUrl'>, userId: string): Promise<Anuncio> => {
+// Simplified API calls for image handling
+const uploadImageToStorage = async (imageUri: string): Promise<string> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log("Uploading image:", imageUri);
+      // Mock successful upload with a new URL
+      resolve(`https://via.placeholder.com/400x300?text=Uploaded+Image+${Date.now()}`);
+    }, 1500);
+  });
+};
+
+const createAnuncioApi = async (anuncioData: Omit<Anuncio, 'id' | 'userId'>, userId: string): Promise<Anuncio> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const newAnuncio = {
         ...anuncioData,
         id: String(Date.now()),
         userId,
-        caracteristicas: ["Novo"],
-        imageUrl: "https://via.placeholder.com/400x300?text=Novo+Anuncio",
-        mapImageUrl: "https://via.placeholder.com/400x300?text=Mapa+Novo+Anuncio",
       };
       console.log("Creating anuncio:", newAnuncio);
       resolve(newAnuncio as Anuncio);
@@ -107,6 +116,10 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formDescricao, setFormDescricao] = useState('');
   const [formPreco, setFormPreco] = useState('');
   const [formEndereco, setFormEndereco] = useState('');
+  const [formCaracteristicas, setFormCaracteristicas] = useState<string[]>([]);
+  const [newCaracteristica, setNewCaracteristica] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState<string | null>(null);
+
 
   useEffect(() => {
     const loadAnuncio = async () => {
@@ -119,6 +132,8 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setFormDescricao(fetchedAnuncio.descricao);
           setFormPreco(fetchedAnuncio.preco);
           setFormEndereco(fetchedAnuncio.endereco);
+          setFormCaracteristicas(fetchedAnuncio.caracteristicas);
+          setFormImageUrl(fetchedAnuncio.imageUrl);
         }
         setLoading(false);
       } else {
@@ -130,41 +145,78 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         setFormDescricao('');
         setFormPreco('');
         setFormEndereco('');
+        setFormCaracteristicas([]);
+        setFormImageUrl(null);
       }
     };
 
     loadAnuncio();
   }, [anuncioId]);
 
+  const handlePickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setFormImageUrl(result.assets[0].uri);
+    }
+  };
+
+  const handleAddCaracteristica = () => {
+    if (newCaracteristica.trim() !== '') {
+      setFormCaracteristicas([...formCaracteristicas, newCaracteristica.trim()]);
+      setNewCaracteristica('');
+    }
+  };
+
+  const handleRemoveCaracteristica = (index: number) => {
+    const updatedCaracteristicas = [...formCaracteristicas];
+    updatedCaracteristicas.splice(index, 1);
+    setFormCaracteristicas(updatedCaracteristicas);
+  };
+
   const handleSave = async () => {
     if (!formTitulo || !formDescricao || !formPreco || !formEndereco) {
-      Alert.alert("Erro", "Por favor, preencha todos os campos.");
+      Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 
     setLoading(true);
+    let finalImageUrl = formImageUrl;
+
     try {
+      if (formImageUrl && formImageUrl.startsWith('file://')) { // Check if it's a new local image
+        finalImageUrl = await uploadImageToStorage(formImageUrl);
+      } else if (!formImageUrl) {
+        // If no image is selected and it's a new ad, provide a default
+        finalImageUrl = "https://via.placeholder.com/400x300?text=Sem+Imagem";
+      }
+
+      const anuncioDataToSave: Omit<Anuncio, 'id' | 'userId'> = {
+        titulo: formTitulo,
+        descricao: formDescricao,
+        preco: formPreco,
+        endereco: formEndereco,
+        caracteristicas: formCaracteristicas,
+        imageUrl: finalImageUrl || '', // Ensure it's a string
+        mapImageUrl: anuncio?.mapImageUrl || "https://via.placeholder.com/400x300?text=Mapa", // Keep existing or provide default
+      };
+
       if (anuncioId) {
-        const updatedAnuncio = await updateAnuncioApi(anuncioId, {
-          titulo: formTitulo,
-          descricao: formDescricao,
-          preco: formPreco,
-          endereco: formEndereco,
-        });
+        const updatedAnuncio = await updateAnuncioApi(anuncioId, anuncioDataToSave);
         setAnuncio(updatedAnuncio);
         Alert.alert("Sucesso", "Anúncio atualizado com sucesso!");
       } else {
-        const newAnuncio = await createAnuncioApi({
-          titulo: formTitulo,
-          descricao: formDescricao,
-          preco: formPreco,
-          endereco: formEndereco,
-        }, currentUserId);
+        const newAnuncio = await createAnuncioApi(anuncioDataToSave, currentUserId);
         setAnuncio(newAnuncio);
         Alert.alert("Sucesso", "Anúncio criado com sucesso!");
         navigation.setParams({ anuncioId: newAnuncio.id }); 
       }
-      setIsEditing(false); // Exit editing mode after saving
+      setIsEditing(false); // Sair do modo editar depois de salvar
     } catch (error) {
       Alert.alert("Erro", "Houve um problema ao salvar o anúncio.");
       console.error(error);
@@ -175,15 +227,17 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    // If editing an existing ad, reset form fields to current anuncio data
+    // Se editando um anúncio, setar os campos do forms para os dados do anúncio
     if (anuncio && anuncioId) {
       setFormTitulo(anuncio.titulo);
       setFormDescricao(anuncio.descricao);
       setFormPreco(anuncio.preco);
       setFormEndereco(anuncio.endereco);
+      setFormCaracteristicas(anuncio.caracteristicas);
+      setFormImageUrl(anuncio.imageUrl);
     } else {
-      // If creating a new ad, navigate back or clear fields
-      navigation.goBack(); // Or clear fields if staying on screen
+      // Se criar um novo anúncio, limpar os campos e voltar
+      navigation.goBack(); 
     }
   };
 
@@ -197,7 +251,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
             <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Carregando...</Text>
-          <View style={styles.headerButton} />{/* Placeholder for right button */}
+          <View style={styles.headerButton} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007bff" />
@@ -220,7 +274,9 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Anúncio não encontrado.</Text>
-          <Button title="Voltar" onPress={() => navigation.goBack()} />
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.button}>
+            <Text style={styles.buttonText}>Voltar</Text>
+          </TouchableOpacity>
         </View>
         <BottomNav/>
       </SafeAreaView>
@@ -241,103 +297,144 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
             <MaterialCommunityIcons name="share-variant" size={24} color="#000" />
           </TouchableOpacity>
         )} 
-        {isEditing && <View style={styles.headerButton} /> /* Placeholder to maintain spacing */}
+        {isEditing && <View style={styles.headerButton} /> }
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Conditional Form for Editing/Creating */}
-        {isEditing && (
-          <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>{anuncioId ? "Editar Anúncio" : "Criar Novo Anúncio"}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Título"
-              value={formTitulo}
-              onChangeText={setFormTitulo}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Descrição"
-              value={formDescricao}
-              onChangeText={setFormDescricao}
-              multiline
-              numberOfLines={4}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Preço"
-              value={formPreco}
-              onChangeText={setFormPreco}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Endereço"
-              value={formEndereco}
-              onChangeText={setFormEndereco}
-            />
-            <View style={styles.buttonContainer}>
-              <Button title="Salvar Anúncio" onPress={handleSave} color="#28a745" />
-              <Button title="Cancelar" onPress={handleCancelEdit} color="#dc3545" />
+        <View style={styles.imageGallery}>
+          {isEditing ? (
+            <TouchableOpacity onPress={handlePickImage} style={styles.imagePickerContainer}>
+              {formImageUrl ? (
+                <Image source={{ uri: formImageUrl }} style={styles.mainImage} />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <MaterialCommunityIcons name="camera-plus" size={50} color="#ccc" />
+                  <Text style={styles.imagePlaceholderText}>Adicionar Imagem</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <Image source={{ uri: anuncio?.imageUrl || "https://via.placeholder.com/400x300?text=Sem+Imagem" }} style={styles.mainImage} />
+          )}
+          
+          {/* Pagination dots (static for now, dynamic with a carousel) */}
+          {!isEditing && (
+            <View style={styles.paginationContainer}>
+              <View style={styles.paginationDotActive}></View>
+              <View style={styles.paginationDot}></View>
+              <View style={styles.paginationDot}></View>
+              <View style={styles.paginationDot}></View>
+              <View style={styles.paginationDot}></View>
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
-        {/* Existing UI for viewing the announcement, only visible if not in editing mode and if anuncio exists*/}
-        {!isEditing && anuncio && (
-          <View>
-            <View style={styles.imageGallery}>
-              <Image source={{ uri: anuncio.imageUrl }} style={styles.mainImage} />
-              <View style={styles.paginationContainer}>
-                {/* These dots are static for now, would be dynamic with a carousel library */}
-                <View style={styles.paginationDotActive}></View>
-                <View style={styles.paginationDot}></View>
-                <View style={styles.paginationDot}></View>
-                <View style={styles.paginationDot}></View>
-                <View style={styles.paginationDot}></View>
-              </View>
-            </View>
-
-            <View style={styles.contentPadding}>
-              <View style={styles.infoCard}>
-                <Text style={styles.priceText}>{anuncio.preco}</Text>
-                <Text style={styles.addressText}>{anuncio.endereco}</Text>
+        <View style={styles.contentPadding}>
+          <View style={styles.infoCard}>
+            {isEditing ? (
+              <>
+                <TextInput
+                  style={[styles.input, styles.priceInput]}
+                  placeholder="Preço"
+                  value={formPreco}
+                  onChangeText={setFormPreco}
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Endereço"
+                  value={formEndereco}
+                  onChangeText={setFormEndereco}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Título"
+                  value={formTitulo}
+                  onChangeText={setFormTitulo}
+                />
+                <View style={styles.featuresEditContainer}>
+                  <Text style={styles.sectionTitle}>Características:</Text>
+                  <View style={styles.newFeatureInputContainer}>
+                    <TextInput
+                      style={[styles.input, styles.newFeatureInput]}
+                      placeholder="Nova característica"
+                      value={newCaracteristica}
+                      onChangeText={setNewCaracteristica}
+                    />
+                    <TouchableOpacity onPress={handleAddCaracteristica} style={styles.addFeatureButton}>
+                      <MaterialCommunityIcons name="plus-circle-outline" size={24} color="#007bff" />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.featuresContainer}>
+                    {formCaracteristicas.map((carac, index) => (
+                      <View key={index} style={styles.featurePillEdit}>
+                        <Text style={styles.featureText}>{carac}</Text>
+                        <TouchableOpacity onPress={() => handleRemoveCaracteristica(index)} style={styles.removeFeatureButton}>
+                          <MaterialCommunityIcons name="close-circle" size={16} color="#dc3545" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+                <TextInput
+                  style={[styles.input, styles.descriptionInput]}
+                  placeholder="Descrição"
+                  value={formDescricao}
+                  onChangeText={setFormDescricao}
+                  multiline
+                  numberOfLines={4}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.priceText}>{anuncio?.preco}</Text>
+                <Text style={styles.addressText}>{anuncio?.endereco}</Text>
                 <View style={styles.featuresContainer}>
-                  {anuncio.caracteristicas.map((carac, index) => (
+                  {anuncio?.caracteristicas.map((carac, index) => (
                     <View key={index} style={styles.featurePill}>
                       <Text style={styles.featureText}>{carac}</Text>
                     </View>
                   ))}
                 </View>
-                <Text style={styles.descriptionText}>{anuncio.descricao}</Text>
-              </View>
+                <Text style={styles.descriptionText}>{anuncio?.descricao}</Text>
+              </>
+            )}
+          </View>
 
-              <View style={styles.locationCard}>
-                <Text style={styles.locationTitle}>Localização</Text>
-                <View style={styles.mapContainer}>
-                  <Image source={{ uri: anuncio.mapImageUrl }} style={styles.mapImage} />
-                </View>
-              </View>
+          <View style={styles.locationCard}>
+            <Text style={styles.locationTitle}>Localização</Text>
+            <View style={styles.mapContainer}>
+              <Image source={{ uri: anuncio?.mapImageUrl || "https://via.placeholder.com/400x300?text=Mapa" }} style={styles.mapImage} />
             </View>
           </View>
-        )}
+        </View>
 
-        {/* If no anuncioId and not editing, we need to handle this state. 
-            This should theoretically be caught by isEditing || !anuncioId check in useEffect, 
-            but as a fallback for the ScrollView content if needed. */}
+        {isEditing && (
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
+              <Text style={styles.buttonText}>Salvar Anúncio</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleCancelEdit} style={[styles.button, styles.cancelButton]}>
+              <Text style={styles.buttonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         {!anuncioId && !isEditing && (
           <View style={styles.noAnuncioContainer}>
             <Text style={styles.noAnuncioText}>Nenhum anúncio para exibir. Comece a criar um!</Text>
-            <Button title="Criar Novo Anúncio" onPress={() => setIsEditing(true)} />
+            <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.button}>
+              <Text style={styles.buttonText}>Criar Novo Anúncio</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
 
-      {/* Edit Button for existing ads, only if not editing and is owner */}
+      {/* FAB for editing existing ads, only if not editing and is owner */}
       {isOwner && anuncioId && !isEditing && (
-        <View style={styles.editButtonFixedContainer}>
-          <Button title="Editar Anúncio" onPress={() => setIsEditing(true)} color="#007bff" />
-        </View>
+        <TouchableOpacity style={styles.fab} onPress={() => setIsEditing(true)}>
+          <MaterialCommunityIcons name="pencil" size={28} color="#fff" />
+        </TouchableOpacity>
       )}
 
       {/* Bottom Nav always visible */}
@@ -373,24 +470,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  formContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    margin: 16, 
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2, 
-  },
-  formTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#333',
-  },
   // Custom Header Styles to match HTML
   header: {
     flexDirection: "row",
@@ -421,11 +500,32 @@ const styles = StyleSheet.create({
     position: "relative",
     height: 320, 
     width: "100%",
+    backgroundColor: '#e0e0e0', // Placeholder background
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mainImage: {
     width: "100%",
     height: "100%",
     resizeMode: "cover",
+  },
+  imagePickerContainer: {
+    width: "100%",
+    height: "100%",
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e9ecef',
+  },
+  imagePlaceholderText: {
+    marginTop: 10,
+    color: '#6c757d',
+    fontSize: 16,
   },
   paginationContainer: {
     position: "absolute",
@@ -471,12 +571,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 16, 
     color: "#4b5563", 
+    marginBottom: 10,
   },
   featuresContainer: {
     marginTop: 16,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8, 
+    marginBottom: 10,
   },
   featurePill: {
     borderRadius: 9999, 
@@ -484,10 +586,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, 
     paddingVertical: 4, 
   },
+  featurePillEdit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 9999,
+    backgroundColor: "rgba(19, 127, 236, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
   featureText: {
     fontSize: 14, 
     fontWeight: "500", 
     color: "#137fec", 
+  },
+  removeFeatureButton: {
+    marginLeft: 5,
   },
   descriptionText: {
     marginTop: 16,
@@ -509,6 +622,7 @@ const styles = StyleSheet.create({
     fontSize: 20, 
     fontWeight: "bold",
     color: "#000", 
+    marginBottom: 10,
   },
   mapContainer: {
     marginTop: 12,
@@ -531,20 +645,57 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     fontSize: 16,
   },
+  priceInput: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  descriptionInput: {
+    height: 120, // Make description input taller
+    textAlignVertical: 'top', // Align text to the top for multiline
+  },
   buttonContainer: {
     marginTop: 20,
+    marginBottom: 100, // Add space for bottom nav
     flexDirection: 'row',
     justifyContent: 'space-around',
     gap: 10,
+    paddingHorizontal: 16,
   },
-  editButtonFixedContainer: {
-    position: 'absolute',
-    bottom: 100, 
-    left: 0,
-    right: 0,
+  button: {
+    backgroundColor: '#007bff',
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    paddingBottom: 10,
-    backgroundColor: 'transparent', 
+    borderRadius: 8,
+    alignItems: 'center',
+    flex: 1,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  saveButton: {
+    backgroundColor: '#28a745',
+  },
+  cancelButton: {
+    backgroundColor: '#dc3545',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 135, // Adjust to be above the BottomNav
+    right: 20,
+    backgroundColor: '#007bff',
+    width: 70,
+    height: 70,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
     zIndex: 100, // Ensure it's above other elements
   },
   noAnuncioContainer: {
@@ -559,5 +710,27 @@ const styles = StyleSheet.create({
     color: '#555',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  featuresEditContainer: {
+    marginBottom: 15,
+  },
+  newFeatureInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  newFeatureInput: {
+    flex: 1,
+    marginBottom: 0, // Remove bottom margin from input
+    marginRight: 10,
+  },
+  addFeatureButton: {
+    padding: 8,
   }
 });

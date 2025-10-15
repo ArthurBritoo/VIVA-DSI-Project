@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     right: 20,
-    bottom: 90, // Adjust to be above the BottomNav
+    bottom: 135, // Adjust to be above the BottomNav
     backgroundColor: '#137fec',
     borderRadius: 40,
     elevation: 8, // for Android shadow
