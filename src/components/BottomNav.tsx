@@ -1,49 +1,85 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AntDesign, EvilIcons, Feather } from '@expo/vector-icons';
+import { NavigationProp, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type RootStackParamList = {
-  Home: undefined;
   Buscar: undefined;
+  Home: undefined;
   Perfil: undefined;
-  AnuncioDetail: { anuncioId: string };
 };
 
-type BottomNavNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+const BottomNav = () => {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList>>();
 
-export default function BottomNav() {
-  const navigation = useNavigation<BottomNavNavigationProp>();
+  const handlePress = (tabName: keyof RootStackParamList) => {
+    navigation.navigate(tabName);
+  };
 
   return (
-    <View style={styles.navbar}>
-      <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Buscar')}>
-        <Text style={styles.navIcon}>🔍</Text>
-        <Text style={styles.navLabel}>Search</Text>
+    <View style={styles.navContainer}>
+      <TouchableOpacity style={styles.navItem} onPress={() => handlePress('Buscar')}>
+        <EvilIcons
+          name="search"
+          size={30}
+          style={[styles.navIcon, route.name === 'Buscar' && styles.activeIcon]}
+        />
+        <Text style={[styles.navLabel, route.name === 'Buscar' && styles.activeLabel]}>
+          Buscar
+        </Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[styles.navItem]} onPress={() => navigation.navigate('Home')}>
-        <Text style={[styles.navIcon, { color: "#137fec" }]}>🏠</Text>
-        <Text style={[styles.navLabel, { color: "#137fec" }]}>Home</Text>
+
+      <TouchableOpacity style={styles.navItem} onPress={() => handlePress('Home')}>
+        <AntDesign
+          name="home"
+          size={25}
+          style={[styles.navIcon, route.name === 'Home' && styles.activeIcon]}
+        />
+        <Text style={[styles.navLabel, route.name === 'Home' && styles.activeLabel]}>
+          Início
+        </Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Perfil')}>
-        <Text style={styles.navIcon}>👤</Text>
-        <Text style={styles.navLabel}>Profile</Text>
+
+      <TouchableOpacity style={styles.navItem} onPress={() => handlePress('Perfil')}>
+        <Feather
+          name="user"
+          size={24}
+          style={[styles.navIcon, route.name === 'Perfil' && styles.activeIcon]}
+        />
+        <Text style={[styles.navLabel, route.name === 'Perfil' && styles.activeLabel]}>
+          Perfil
+        </Text>
       </TouchableOpacity>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  navbar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
+  navContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderColor: "#e5e7eb",
-    height: 64,
-    backgroundColor: "#f6f7f8",
+    borderTopColor: '#eee',
+    paddingVertical: 10,
   },
-  navItem: { alignItems: "center" },
-  navIcon: { fontSize: 20, color: "#6b7280" },
-  navLabel: { fontSize: 12, color: "#6b7280" },
+  navItem: {
+    alignItems: 'center',
+  },
+  navIcon: {
+    color: '#6b7280',
+  },
+  navLabel: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  activeIcon: {
+    color: '#137fec',
+  },
+  activeLabel: {
+    color: '#137fec',
+  },
 });
+
+export default BottomNav;
