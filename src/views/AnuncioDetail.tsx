@@ -1,15 +1,20 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'; // For icons
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import axios from 'axios'; // Import axios
+import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
+import { onAuthStateChanged, User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será removido daqui)
 import BottomNav from '../components/BottomNav';
 import { RootStackParamList } from '../types/navigation';
-// Mock image picker for demonstration
-import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 
 const { width } = Dimensions.get('window');
+
+// Defina a URL base do seu backend
+const BASE_URL = 'https://e0084b3e4609.ngrok-free.app'; // <<<<< VERIFIQUE ESTE IP >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -20,138 +25,76 @@ interface AnuncioDetailProps {
 }
 
 interface Anuncio {
-  id: string;
+  id?: string; // ID é opcional para novos anúncios
   titulo: string;
   descricao: string;
-  preco: string;
-  endereco: string;
-  caracteristicas: string[];
+  preco: number; // Alterado para number para corresponder ao backend
   imageUrl: string;
-  mapImageUrl: string;
-  userId: string; // To check if the current user owns the ad
+  userId: string;
+  createdAt?: Date; // Opcional, será gerado no backend
 }
 
-// Mock API functions for demonstration
-const fetchAnuncioById = async (id: string): Promise<Anuncio | null> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (id === "1") {
-        resolve({
-          id: "1",
-          titulo: "Apartamento Moderno no Centro",
-          descricao: "Este deslumbrante apartamento de 2 quartos e 2 banheiros apresenta um design moderno com uma planta aberta, cozinha gourmet e um espaçoso quintal. Aceita animais de estimação e está localizado em um bairro desejável.",
-          preco: "R$ 1.200.000",
-          endereco: "234 Elm Street, Anytown, CA",
-          caracteristicas: ["2 Quartos", "2 Banheiros", "Aceita Animais"],
-          imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBuKRMH2yrXA8R5dhstzuxT0UaiZ_AhmuIGmNDGIIcghNLMTKIupyIZh6L3SJ-_iuGBgZ9mXKrCu0FFt4EJwSX-9GReQ4J8c6SviZMVetQhu_6US0oU07iQ5zVfbY5cDsKJiV1n34ChHlMXjozay-X1qRBG_gp9DodDDzAhooH_GvZDtdCbrc9WQG_Rf1XFD4UKrjLGcNvt275fjEjRGES6xqdqMrdY9y_sifWTz_ktMAgQBiHc4yaDIpqccAeVgLj5Tu0kbiEFPc4",
-          mapImageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCLL02BYUuUzkcAjxCexivrvKvMYZAFj0YzuEnuNxWCfrxEDnjjrNZisOVtC9eEzJquuFt0VqH1h7q40QDKRMGI7chl6A_nFLdWWG2tyZlrn8XGV1omUMKpJU7bsHa8yX3yMC1IWxPYOo9G_exKoO8gRcUesUYGa9_2DjuGe6RZEgexzAYtBI4Z2q4aEmtSClqz4KQiEyA2qSK_cX4W8Y81wyXaivHxfg_24sCKlROIa8zJDBY1SDb-bvyllsnUPfnjlkcKCkKX-eh4",
-          userId: "user123", // Mock user ID for this ad
-        });
-      } else if (id === "2") {
-        resolve({
-          id: "2",
-          titulo: "Casa com Jardim",
-          descricao: "Uma bela casa com um grande jardim, 3 quartos e 2 banheiros. Perfeita para famílias. Localizada em um bairro tranquilo.",
-          preco: "R$ 750.000",
-          endereco: "Rua das Flores, 10, Cidade Verde, MG",
-          caracteristicas: ["3 Quartos", "2 Banheiros", "Jardim"],
-          imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAt8atNVwwMEwiuYwWFHG5qD1cWRQgJ1kv5o0G_rjxY42I8KCeEkDEG_p6q618QogJbMbnUGjLhZZGPCyKWjHKYfSfB0iDJWbTaoDxCq2DnG-mC-abLoWRNRcKbS0YrhO3TAuaPuxXs5F3C4mTgGac4oHkcYG0ZuPP1O_OVEooRtO-CBp5zDijoUh7CpRoMVjNMK-C3WZpACuC9l4JAfdt4tI3p3dLh0Nhx5So6Ps59J5QPK0mVw8Fb8iC7SIDUsUTtj-cx-7_1-Aw",
-          mapImageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCLL02BYUuUzkcAjxCexivrvKvMYZAFj0YzuEnuNxWCfrxEDnjjrNZisOVtC9eEzJquuFt0VqH1h7q40QDKRMGI7chl6A_nFLdWWG2tyZlrn8XGV1omUMKpJU7bsHa8yX3yMC1IWxPYOo9G_exKoO8gRcUesUYGa9_2DjuGe6RZEgexzAYtBI4Z2q4aEmtSClqz4KQiEyA2qSK_cX4W8Y81wyXaivHxfg_24sCKlROIa8zJDBY1SDb-bvyllsnUPfnjlkcKCkKX-eh4",
-          userId: "anotherUser", // Mock user ID for this ad
-        });
-      }
-      else {
-        resolve(null); // Ad not found
-      }
-    }, 1000);
-  });
-};
-
-// Simplified API calls for image handling
-const uploadImageToStorage = async (imageUri: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      console.log("Uploading image:", imageUri);
-      // Mock successful upload with a new URL
-      resolve(`https://via.placeholder.com/400x300?text=Uploaded+Image+${Date.now()}`);
-    }, 1500);
-  });
-};
-
-const createAnuncioApi = async (anuncioData: Omit<Anuncio, 'id' | 'userId'>, userId: string): Promise<Anuncio> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const newAnuncio = {
-        ...anuncioData,
-        id: String(Date.now()),
-        userId,
-      };
-      console.log("Creating anuncio:", newAnuncio);
-      resolve(newAnuncio as Anuncio);
-    }, 1000);
-  });
-};
-
-const updateAnuncioApi = async (id: string, anuncioData: Partial<Anuncio>): Promise<Anuncio> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      console.log("Updating anuncio:", id, anuncioData);
-      // In a real app, you'd merge with existing data in your database
-      resolve({ id, ...anuncioData } as Anuncio);
-    }, 1000);
-  });
-};
-
+// A função uploadImageToStorage será removida
 
 export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps) {
   const { anuncioId } = route.params || {};
   const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-
-  // Mock current user ID for demonstration. 
-  const currentUserId = "user123"; 
+  const [currentUser, setCurrentUser] = useState<User | null>(null); // Estado para o usuário atual
 
   const [formTitulo, setFormTitulo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [formPreco, setFormPreco] = useState('');
-  const [formEndereco, setFormEndereco] = useState('');
-  const [formCaracteristicas, setFormCaracteristicas] = useState<string[]>([]);
-  const [newCaracteristica, setNewCaracteristica] = useState('');
   const [formImageUrl, setFormImageUrl] = useState<string | null>(null);
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setLoading(false); 
+    });
+
+    return () => unsubscribe(); 
+  }, []);
 
   useEffect(() => {
     const loadAnuncio = async () => {
+      if (!currentUser && anuncioId) {
+        setLoading(true);
+        return; 
+      }
+
       if (anuncioId) {
         setLoading(true);
-        const fetchedAnuncio = await fetchAnuncioById(anuncioId);
-        setAnuncio(fetchedAnuncio);
-        if (fetchedAnuncio) {
+        try {
+          const response = await axios.get<Anuncio>(`${BASE_URL}/anuncios/${anuncioId}`);
+          const fetchedAnuncio = response.data;
+          setAnuncio(fetchedAnuncio);
           setFormTitulo(fetchedAnuncio.titulo);
           setFormDescricao(fetchedAnuncio.descricao);
-          setFormPreco(fetchedAnuncio.preco);
-          setFormEndereco(fetchedAnuncio.endereco);
-          setFormCaracteristicas(fetchedAnuncio.caracteristicas);
+          setFormPreco(fetchedAnuncio.preco.toString());
           setFormImageUrl(fetchedAnuncio.imageUrl);
+        } catch (error) {
+          console.error("Error fetching anuncio:", error);
+          Alert.alert("Erro", "Não foi possível carregar o anúncio.");
+          setAnuncio(null);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
-      } else {
-        // If no anuncioId, it's a new ad. Start in editing mode.
+      } else if (currentUser) {
         setIsEditing(true);
         setLoading(false);
-        // Clear form fields for a new ad
         setFormTitulo('');
         setFormDescricao('');
         setFormPreco('');
-        setFormEndereco('');
-        setFormCaracteristicas([]);
         setFormImageUrl(null);
+      } else {
+        setLoading(false);
       }
     };
 
     loadAnuncio();
-  }, [anuncioId]);
+  }, [anuncioId, currentUser]); 
 
   const handlePickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -166,22 +109,14 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     }
   };
 
-  const handleAddCaracteristica = () => {
-    if (newCaracteristica.trim() !== '') {
-      setFormCaracteristicas([...formCaracteristicas, newCaracteristica.trim()]);
-      setNewCaracteristica('');
-    }
-  };
-
-  const handleRemoveCaracteristica = (index: number) => {
-    const updatedCaracteristicas = [...formCaracteristicas];
-    updatedCaracteristicas.splice(index, 1);
-    setFormCaracteristicas(updatedCaracteristicas);
-  };
-
   const handleSave = async () => {
-    if (!formTitulo || !formDescricao || !formPreco || !formEndereco) {
-      Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios.");
+    if (!formTitulo || !formDescricao || !formPreco) {
+      Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios: Título, Descrição e Preço.");
+      return;
+    }
+
+    if (!currentUser) {
+      Alert.alert("Erro", "Você precisa estar logado para salvar um anúncio.");
       return;
     }
 
@@ -189,37 +124,34 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     let finalImageUrl = formImageUrl;
 
     try {
-      if (formImageUrl && formImageUrl.startsWith('file://')) { // Check if it's a new local image
-        finalImageUrl = await uploadImageToStorage(formImageUrl);
-      } else if (!formImageUrl) {
-        // If no image is selected and it's a new ad, provide a default
+      // REMOVIDO: Lógica de upload para o Firebase Storage
+      // Agora, se uma imagem local foi selecionada, usamos seu URI diretamente
+      if (!finalImageUrl) {
         finalImageUrl = "https://via.placeholder.com/400x300?text=Sem+Imagem";
       }
 
-      const anuncioDataToSave: Omit<Anuncio, 'id' | 'userId'> = {
+      const anuncioDataToSave: Omit<Anuncio, 'id' | 'createdAt'> = {
         titulo: formTitulo,
         descricao: formDescricao,
-        preco: formPreco,
-        endereco: formEndereco,
-        caracteristicas: formCaracteristicas,
-        imageUrl: finalImageUrl || '', // Ensure it's a string
-        mapImageUrl: anuncio?.mapImageUrl || "https://via.placeholder.com/400x300?text=Mapa", // Keep existing or provide default
+        preco: parseFloat(formPreco),
+        imageUrl: finalImageUrl || '',
+        userId: currentUser.uid, 
       };
 
       if (anuncioId) {
-        const updatedAnuncio = await updateAnuncioApi(anuncioId, anuncioDataToSave);
-        setAnuncio(updatedAnuncio);
+        const response = await axios.put<Anuncio>(`${BASE_URL}/anuncios/${anuncioId}`, anuncioDataToSave);
+        setAnuncio(response.data);
         Alert.alert("Sucesso", "Anúncio atualizado com sucesso!");
       } else {
-        const newAnuncio = await createAnuncioApi(anuncioDataToSave, currentUserId);
-        setAnuncio(newAnuncio);
+        const response = await axios.post<Anuncio>(`${BASE_URL}/anuncios`, { anuncioData: anuncioDataToSave, userId: currentUser.uid });
+        setAnuncio(response.data);
         Alert.alert("Sucesso", "Anúncio criado com sucesso!");
-        navigation.setParams({ anuncioId: newAnuncio.id }); 
+        navigation.setParams({ anuncioId: response.data.id });
       }
-      setIsEditing(false); // Sair do modo editar depois de salvar
+      setIsEditing(false);
     } catch (error) {
       Alert.alert("Erro", "Houve um problema ao salvar o anúncio.");
-      console.error(error);
+      console.error("Erro ao salvar anúncio:", error);
     } finally {
       setLoading(false);
     }
@@ -227,21 +159,17 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    // Se editando um anúncio, setar os campos do forms para os dados do anúncio
     if (anuncio && anuncioId) {
       setFormTitulo(anuncio.titulo);
       setFormDescricao(anuncio.descricao);
-      setFormPreco(anuncio.preco);
-      setFormEndereco(anuncio.endereco);
-      setFormCaracteristicas(anuncio.caracteristicas);
+      setFormPreco(anuncio.preco.toString());
       setFormImageUrl(anuncio.imageUrl);
     } else {
-      // Se criar um novo anúncio, limpar os campos e voltar
       navigation.goBack(); 
     }
   };
 
-  const isOwner = anuncio && anuncio.userId === currentUserId;
+  const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
 
   if (loading) {
     return (
@@ -255,11 +183,17 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007bff" />
-          <Text style={styles.loadingText}>Carregando...</Text>
+          <Text style={styles.loadingText}>{!currentUser && anuncioId ? "Aguardando autenticação..." : "Carregando..."}</Text>
         </View>
         <BottomNav/>
       </SafeAreaView>
     );
+  }
+
+  if (!currentUser && anuncioId) {
+    Alert.alert("Aviso", "Você precisa estar logado para ver este anúncio.");
+    navigation.navigate('Login'); 
+    return null;
   }
 
   if (!anuncio && anuncioId && !isEditing) {
@@ -270,7 +204,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
             <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Anúncio não encontrado</Text>
-          <View style={styles.headerButton} />{/* Placeholder for right button */}
+          <View style={styles.headerButton} />
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Anúncio não encontrado.</Text>
@@ -317,7 +251,6 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
             <Image source={{ uri: anuncio?.imageUrl || "https://via.placeholder.com/400x300?text=Sem+Imagem" }} style={styles.mainImage} />
           )}
           
-          {/* Pagination dots (static for now, dynamic with a carousel) */}
           {!isEditing && (
             <View style={styles.paginationContainer}>
               <View style={styles.paginationDotActive}></View>
@@ -342,40 +275,10 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Endereço"
-                  value={formEndereco}
-                  onChangeText={setFormEndereco}
-                />
-                <TextInput
-                  style={styles.input}
                   placeholder="Título"
                   value={formTitulo}
                   onChangeText={setFormTitulo}
                 />
-                <View style={styles.featuresEditContainer}>
-                  <Text style={styles.sectionTitle}>Características:</Text>
-                  <View style={styles.newFeatureInputContainer}>
-                    <TextInput
-                      style={[styles.input, styles.newFeatureInput]}
-                      placeholder="Nova característica"
-                      value={newCaracteristica}
-                      onChangeText={setNewCaracteristica}
-                    />
-                    <TouchableOpacity onPress={handleAddCaracteristica} style={styles.addFeatureButton}>
-                      <MaterialCommunityIcons name="plus-circle-outline" size={24} color="#007bff" />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.featuresContainer}>
-                    {formCaracteristicas.map((carac, index) => (
-                      <View key={index} style={styles.featurePillEdit}>
-                        <Text style={styles.featureText}>{carac}</Text>
-                        <TouchableOpacity onPress={() => handleRemoveCaracteristica(index)} style={styles.removeFeatureButton}>
-                          <MaterialCommunityIcons name="close-circle" size={16} color="#dc3545" />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                </View>
                 <TextInput
                   style={[styles.input, styles.descriptionInput]}
                   placeholder="Descrição"
@@ -387,15 +290,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
               </>
             ) : (
               <>
-                <Text style={styles.priceText}>{anuncio?.preco}</Text>
-                <Text style={styles.addressText}>{anuncio?.endereco}</Text>
-                <View style={styles.featuresContainer}>
-                  {anuncio?.caracteristicas.map((carac, index) => (
-                    <View key={index} style={styles.featurePill}>
-                      <Text style={styles.featureText}>{carac}</Text>
-                    </View>
-                  ))}
-                </View>
+                <Text style={styles.priceText}>R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : ''}</Text>
                 <Text style={styles.descriptionText}>{anuncio?.descricao}</Text>
               </>
             )}
@@ -404,7 +299,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           <View style={styles.locationCard}>
             <Text style={styles.locationTitle}>Localização</Text>
             <View style={styles.mapContainer}>
-              <Image source={{ uri: anuncio?.mapImageUrl || "https://via.placeholder.com/400x300?text=Mapa" }} style={styles.mapImage} />
+              <Image source={{ uri: "https://via.placeholder.com/400x300?text=Mapa" }} style={styles.mapImage} />
             </View>
           </View>
         </View>
@@ -430,14 +325,12 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         )}
       </ScrollView>
 
-      {/* FAB for editing existing ads, only if not editing and is owner */}
       {isOwner && anuncioId && !isEditing && (
         <TouchableOpacity style={styles.fab} onPress={() => setIsEditing(true)}>
           <MaterialCommunityIcons name="pencil" size={28} color="#fff" />
         </TouchableOpacity>
       )}
 
-      {/* Bottom Nav always visible */}
       <BottomNav/>
     </SafeAreaView>
   );
@@ -470,13 +363,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  // Custom Header Styles to match HTML
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    paddingBottom: 8, // Adjust as per HTML
+    paddingBottom: 8, 
     backgroundColor: "#f6f7f8", 
   },
   headerButton: {
@@ -495,12 +387,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 10,
   },
-  // Image Gallery Styles
   imageGallery: {
     position: "relative",
     height: 320, 
     width: "100%",
-    backgroundColor: '#e0e0e0', // Placeholder background
+    backgroundColor: '#e0e0e0', 
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -551,7 +442,6 @@ const styles = StyleSheet.create({
   contentPadding: {
     padding: 16,
   },
-  // Info Card Styles
   infoCard: {
     borderRadius: 12, 
     backgroundColor: "#fff", 
@@ -651,12 +541,12 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   descriptionInput: {
-    height: 120, // Make description input taller
-    textAlignVertical: 'top', // Align text to the top for multiline
+    height: 120, 
+    textAlignVertical: 'top', 
   },
   buttonContainer: {
     marginTop: 20,
-    marginBottom: 100, // Add space for bottom nav
+    marginBottom: 100, 
     flexDirection: 'row',
     justifyContent: 'space-around',
     gap: 10,
@@ -683,7 +573,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 135, // Adjust to be above the BottomNav
+    bottom: 135, 
     right: 20,
     backgroundColor: '#007bff',
     width: 70,
@@ -691,19 +581,19 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4, // Android shadow
-    shadowColor: '#000', // iOS shadow
+    elevation: 4, 
+    shadowColor: '#000', 
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    zIndex: 100, // Ensure it's above other elements
+    zIndex: 100, 
   },
   noAnuncioContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    minHeight: 200, // Ensure it takes some space
+    minHeight: 200, 
   },
   noAnuncioText: {
     fontSize: 18,
@@ -727,7 +617,7 @@ const styles = StyleSheet.create({
   },
   newFeatureInput: {
     flex: 1,
-    marginBottom: 0, // Remove bottom margin from input
+    marginBottom: 0, 
     marginRight: 10,
   },
   addFeatureButton: {

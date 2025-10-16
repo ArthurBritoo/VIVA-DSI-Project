@@ -35,9 +35,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fetchUserData = void 0;
 const admin = __importStar(require("firebase-admin"));
-const fetchUserData = async (email) => {
+const fetchUserData = async (uid) => {
     try {
-        const userDoc = await admin.firestore().collection('users').doc(email).get();
+        const userDoc = await admin.firestore().collection('users').doc(uid).get();
         if (userDoc.exists) {
             return userDoc.data();
         }

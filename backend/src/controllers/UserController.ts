@@ -1,8 +1,8 @@
 import * as admin from "firebase-admin";
 
-export const fetchUserData = async (email: string) => {
+export const fetchUserData = async (uid: string) => {
   try {
-    const userDoc = await admin.firestore().collection('users').doc(email).get();
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
     if (userDoc.exists) {
       return userDoc.data();
     } else {

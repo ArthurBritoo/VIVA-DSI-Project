@@ -36,12 +36,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const express_1 = __importDefault(require("express"));
 const admin = __importStar(require("firebase-admin"));
 // import { db } from "./firebaseConfig"; // The 'db' here would be from the client SDK, not Admin SDK
 // Import the service account key
-const serviceAccount = __importStar(require("./serviceAccountKey.json")); // Updated path
+const serviceAccount = __importStar(require("../ServiceAccountKey.json")); // Updated path to look in the parent directory
 // Import the AnuncioController functions
 const AnuncioController_1 = require("./controllers/AnuncioController");
 // Import UserController functions
@@ -142,11 +142,11 @@ app.get("/anuncios/user/:userId", async (req, res) => {
     }
 });
 // RESTful API for User
-// Get user data by email
-app.get("/users/:email", async (req, res) => {
+// Get user data by UID
+app.get("/users/:uid", async (req, res) => {
     try {
-        const { email } = req.params;
-        const userData = await (0, UserController_1.fetchUserData)(email);
+        const { uid } = req.params;
+        const userData = await (0, UserController_1.fetchUserData)(uid);
         if (userData) {
             res.status(200).send(userData);
         }

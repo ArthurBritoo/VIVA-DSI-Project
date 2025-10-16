@@ -1,13 +1,13 @@
-import express from "express";
 import cors from "cors";
+import express from "express";
 import * as admin from "firebase-admin";
 // import { db } from "./firebaseConfig"; // The 'db' here would be from the client SDK, not Admin SDK
 
 // Import the service account key
-import * as serviceAccount from "./serviceAccountKey.json"; // Updated path
+import * as serviceAccount from "../ServiceAccountKey.json"; // Updated path to look in the parent directory
 
 // Import the AnuncioController functions
-import { Anuncio, createAnuncio, getAnuncios, getAnuncioById, updateAnuncio, deleteAnuncio, getAnunciosByUserId } from "./controllers/AnuncioController";
+import { createAnuncio, deleteAnuncio, getAnuncioById, getAnuncios, getAnunciosByUserId, updateAnuncio } from "./controllers/AnuncioController";
 // Import UserController functions
 import { fetchUserData } from "./controllers/UserController";
 
@@ -111,11 +111,11 @@ app.get("/anuncios/user/:userId", async (req, res) => {
 
 // RESTful API for User
 
-// Get user data by email
-app.get("/users/:email", async (req, res) => {
+// Get user data by UID
+app.get("/users/:uid", async (req, res) => {
   try {
-    const { email } = req.params;
-    const userData = await fetchUserData(email);
+    const { uid } = req.params;
+    const userData = await fetchUserData(uid);
     if (userData) {
       res.status(200).send(userData);
     } else {
