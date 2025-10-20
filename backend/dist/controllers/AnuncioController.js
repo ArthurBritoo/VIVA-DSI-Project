@@ -1,18 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAnunciosByUserId = exports.deleteAnuncio = exports.updateAnuncio = exports.getAnuncioById = exports.getAnuncios = exports.createAnuncio = void 0;
-const firebaseConfig_1 = require("../firebaseConfig");
-const firestore_1 = require("firebase/firestore");
-const anunciosCollectionRef = (0, firestore_1.collection)(firebaseConfig_1.db, "anuncio");
+// Functions now accept 'db' as an argument
 // criar novo anuncio
-const createAnuncio = async (anuncioData, userId) => {
+const createAnuncio = async (db, anuncioData, userId) => {
     try {
+        const anunciosCollectionRef = db.collection("anuncio");
         const newAnuncio = {
             ...anuncioData,
             userId: userId,
             createdAt: new Date(),
         };
-        const docRef = await (0, firestore_1.addDoc)(anunciosCollectionRef, newAnuncio);
+        const docRef = await anunciosCollectionRef.add(newAnuncio);
         return { id: docRef.id, ...newAnuncio };
     }
     catch (error) {
@@ -22,9 +21,10 @@ const createAnuncio = async (anuncioData, userId) => {
 };
 exports.createAnuncio = createAnuncio;
 // obter todos anuncios
-const getAnuncios = async () => {
+const getAnuncios = async (db) => {
     try {
-        const querySnapshot = await (0, firestore_1.getDocs)(anunciosCollectionRef);
+        const anunciosCollectionRef = db.collection("anuncio");
+        const querySnapshot = await anunciosCollectionRef.get();
         return querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
@@ -37,15 +37,17 @@ const getAnuncios = async () => {
 };
 exports.getAnuncios = getAnuncios;
 //obter anuncio especifico
-const getAnuncioById = async (id) => {
+const getAnuncioById = async (db, id) => {
     try {
-        const docRef = (0, firestore_1.doc)(firebaseConfig_1.db, "anuncios", id);
-        const docSnap = await (0, firestore_1.getDoc)(docRef);
-        if (docSnap.exists()) {
+        console.log("Attempting to fetch anuncio with ID:", id);
+        const docRef = db.collection("anuncio").doc(id);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+            console.log("Anuncio found!");
             return { id: docSnap.id, ...docSnap.data() };
         }
         else {
-            console.log("No such document!");
+            console.log("No such document in Firestore for ID:", id);
             return null;
         }
     }
@@ -56,10 +58,10 @@ const getAnuncioById = async (id) => {
 };
 exports.getAnuncioById = getAnuncioById;
 // atualizar anuncio
-const updateAnuncio = async (id, updatedData) => {
+const updateAnuncio = async (db, id, updatedData) => {
     try {
-        const anuncioRef = (0, firestore_1.doc)(firebaseConfig_1.db, "anuncios", id);
-        await (0, firestore_1.updateDoc)(anuncioRef, updatedData);
+        const anuncioRef = db.collection("anuncio").doc(id);
+        await anuncioRef.update(updatedData);
     }
     catch (error) {
         console.error("Error updating anuncio: ", error);
@@ -67,10 +69,10 @@ const updateAnuncio = async (id, updatedData) => {
     }
 };
 exports.updateAnuncio = updateAnuncio;
-const deleteAnuncio = async (id) => {
+const deleteAnuncio = async (db, id) => {
     try {
-        const anuncioRef = (0, firestore_1.doc)(firebaseConfig_1.db, "anuncios", id);
-        await (0, firestore_1.deleteDoc)(anuncioRef);
+        const anuncioRef = db.collection("anuncio").doc(id);
+        await anuncioRef.delete();
     }
     catch (error) {
         console.error("Error deleting anuncio: ", error);
@@ -79,10 +81,10 @@ const deleteAnuncio = async (id) => {
 };
 exports.deleteAnuncio = deleteAnuncio;
 // obter anúncios de um usuário específico
-const getAnunciosByUserId = async (userId) => {
+const getAnunciosByUserId = async (db, userId) => {
     try {
-        const q = (0, firestore_1.query)(anunciosCollectionRef, (0, firestore_1.where)("userId", "==", userId));
-        const querySnapshot = await (0, firestore_1.getDocs)(q);
+        const anunciosCollectionRef = db.collection("anuncio");
+        const querySnapshot = await anunciosCollectionRef.where("userId", "==", userId).get();
         return querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()

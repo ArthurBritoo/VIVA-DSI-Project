@@ -1,46 +1,31 @@
-import React from "react";
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useEffect, useState, useCallback } from "react";
 import {
-  View,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  FlatList,
-  Image,
+  View,
 } from "react-native";
-import {SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Header  from "../components/Header";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { auth } from "../assets/firebaseConfig";
 import BottomNav from "../components/BottomNav";
+import Header from "../components/Header";
 import { RootStackParamList } from "../types/navigation";
+
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-const recentlyViewed = [
-  {
-    id: "1",
-    title: "Modern Home in Suburbia",
-    price: "$450,000",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCe3tCGTd5Z_GRS3KoUYpvrM66m_8NUHrpZOcdjlzc_hVRxMB3WBIfWPmxMKKNxwxPioqvhAAEHN2g61KoPgTGZ3FxDt9-NxQDPOlaOfvAsaiI62dGLj-q_9yYppjdd3i9wIZLPEhiLgCx8ERyaKLwTuv68FPoSPjsxzfhWSPsnYKQOJ6mqXaD1QYp2m8UNdX03OIQFleZOGNqugxJgEUXmrQ4s70GJ3J4fMvH0Fn0MJoZGYg9AAlfN-6pryYWGgh-vEtiACo2rnug",
-  },
-  {
-    id: "2",
-    title: "Cozy Cottage Retreat",
-    price: "$275,000",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAt8atNVwwMEwiuYwWFHG5qD1cWRQgJ1kv5o0G_rjxY42I8KCeEkDEG_p6q618QogJbMbnUGjLhZZGPCyKWjHKYfSfB0iDJWbTaoDxCq2DnG-mC-abLoWRNRcKbS0YrhO3TAuaPuxXs5F3C4mTgGac4oHkcYG0ZuPP1O_OVEooRtO-CBp5zDijoUh7CpRoMVjNMK-C3WZpACuC9l4JAfdt4tI3p3dLh0Nhx5So6Ps59J5QPK0mVw8Fb8iC7SIDUsUTtj-cx-7_1-Aw",
-  },
-  {
-    id: "3",
-    title: "Urban Loft Living",
-    price: "$320,000",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCtKiWs6Acr22jgJpEQoKEU8rF5dGFD7s479FS0FH_sSLbJUNgJKefIn1WebtDhbWEEt1EKxqptT0AuysOFnfHvXc3DoXTc91BNf__wV-KxczdWzlO2eFVqmrttBdbHXQitFViLFGg2ecIBr5jfH_9mjcLLeJopAIIPyAYN-5dF-Vu6lJdU0ziJTc1eO203OAZidqCWuQwutNKjmbPFsO1AC4dyqtT6YBNZLfwUlOVMHDyaYzsVCSs4PQ1KxdLiBebRW9dDC9dV2Tk",
-  },
-];
+interface Anuncio {
+  id: string;
+  titulo: string;
+  price: string;
+  imageUrl: string;
+}
 
 const savedProperties = [
   {
@@ -49,7 +34,7 @@ const savedProperties = [
     title: "Luxury Apartment with City Views",
     details: "2 beds · 2 baths · 1,200 sq ft",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAC2N2JwiUvCl_ti9LPXZWLUqcX9jW-emlV40cIctx75XHefGGD8KiA9chy5rGIzdC0uX_2kKh845TCf2w0Kq4YpTO_MU_PUpmKPRjVN165sEq9DhTZ9O4uRKa9Fd_g_oOChiYHiR4dUB8TPrQm8dEYFf0u6btlexobLoOC2pbT_-5Ct8APPTj0MVa09xfc5ulWsGnZh4Z0FBMn1toE7xf601DXLKqoll9tmFMf_EJ--G5KxpHdfjQo4uAkSLwQ1c0caNXdofq21xs",
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuAC2N2JwiUvCl_ti9LPXZWLUqcX9jW-emlV40cIctx75XHefGGD8KiA9chy5rGIzdC0uX_2kKh845TCF2w0Kq4YpTO_MU_PUpmPPRjVN165sEq9DhTZ9O4uRKa9Fd_g_oOChiYHiR4dUB8TPrQm8dEYFf0u6btlexobLoOC2pbT_-5Ct8APPTj0MVa09xfc5ulWsGnZh4Z0FBMn1toE7xf601DXLKqoll9tmFMf_EJ--G5KxpHdfjQo4uAkSLQ1c0caNXdofq21xs",
   },
   {
     id: "2",
@@ -57,20 +42,87 @@ const savedProperties = [
     title: "Charming Townhouse in Historic District",
     details: "3 beds · 2.5 baths · 1,800 sq ft",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavOwuUUG9sl5cpQnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavOwuUUG9sl5cpQpnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
   },
 ];
 
 export default function App() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
+  const [recentlyViewed, setRecentlyViewed] = useState<Anuncio[]>([]);
+  const [idToken, setIdToken] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
-  const handlePress = (tabName: keyof RootStackParamList) => {
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        try {
+          const token = await user.getIdToken(true);//forçar refresh
+          setIdToken(token);
+        } catch (error) {
+          console.error("Error getting ID token:", error);
+          setIdToken(null);
+        }
+      } else {
+        setIdToken(null);
+      }
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on unmount
+  }, []);
+
+  useEffect(() => {
+    const fetchAnuncios = async () => {
+      if (!idToken) {
+        console.log("IdToken não disponível, pulando chamada de API.");
+        return;
+      }
+
+      try {
+        const response = await fetch('https://5921093946ac.ngrok-free.app/anuncios', {
+          headers: {
+            'Authorization': `Bearer ${idToken}`, // Add Authorization header
+          },
+        });
+        console.log("API Response Status:", response.status); // Log the response status
+        const data = await response.json();
+        console.log("API Data:", data); // Log the raw data from the API
+
+        let anunciosToProcess: any[] = [];
+        if (Array.isArray(data)) {
+          anunciosToProcess = data;
+        } else if (data && Array.isArray(data.anuncios)) { // Assuming data might be an object with an 'anuncios' key
+          anunciosToProcess = data.anuncios;
+        } else {
+          console.warn("API response is not an array or does not contain an 'anuncios' array:", data);
+          setRecentlyViewed([]);
+          return;
+        }
+
+        const anunciosList: Anuncio[] = anunciosToProcess.map((anuncio: any) => ({
+          id: anuncio.id,
+          titulo: anuncio.titulo,
+          price: anuncio.preco, 
+          imageUrl: anuncio.imageUrl,
+        }));
+        setRecentlyViewed(anunciosList);
+      } catch (error) {
+        console.error("Error fetching anuncios: ", error);
+      }
+    };
+
+    fetchAnuncios();
+  }, [idToken]);
+
+  const handlePress = (tabName: keyof RootStackParamList, anuncioId?: string) => {
     if (tabName === 'AnuncioDetail') {
-      navigation.navigate('AnuncioDetail', {});
+      navigation.navigate('AnuncioDetail', { anuncioId });
     } else {
       navigation.navigate(tabName, undefined);
     }
+
   };
+
   
   return (
     <SafeAreaView style={styles.container}>
@@ -119,13 +171,13 @@ export default function App() {
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Image source={{ uri: item.image }} style={styles.cardImage} />
+              <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
+                <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
                 <Text style={styles.cardTitle} numberOfLines={1}>
-                  {item.title}
+                  {item.titulo}
                 </Text>
                 <Text style={styles.cardPrice}>{item.price}</Text>
-              </View>
+              </TouchableOpacity>
             )}
           />
         </View>

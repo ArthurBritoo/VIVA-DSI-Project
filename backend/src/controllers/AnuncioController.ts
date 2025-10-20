@@ -1,5 +1,4 @@
-import { db } from "../firebaseConfig";
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc, query, where } from "firebase/firestore";
+import * as admin from "firebase-admin";
 
 export interface Anuncio {
   id?: string;
@@ -11,17 +10,18 @@ export interface Anuncio {
   createdAt: Date;
 }
 
-const anunciosCollectionRef = collection(db, "anuncio");
+// Functions now accept 'db' as an argument
 
 // criar novo anuncio
-export const createAnuncio = async (anuncioData: Omit<Anuncio, 'id' | 'createdAt'>, userId: string): Promise<Anuncio> => {
+export const createAnuncio = async (db: admin.firestore.Firestore, anuncioData: Omit<Anuncio, 'id' | 'createdAt'>, userId: string): Promise<Anuncio> => {
   try {
+    const anunciosCollectionRef = db.collection("anuncio");
     const newAnuncio: Anuncio = {
       ...anuncioData,
       userId: userId,
       createdAt: new Date(),
     };
-    const docRef = await addDoc(anunciosCollectionRef, newAnuncio);
+    const docRef = await anunciosCollectionRef.add(newAnuncio);
     return { id: docRef.id, ...newAnuncio };
   } catch (error) {
     console.error("Error creating anuncio: ", error);
@@ -31,9 +31,10 @@ export const createAnuncio = async (anuncioData: Omit<Anuncio, 'id' | 'createdAt
 
 
 // obter todos anuncios
-export const getAnuncios = async (): Promise<Anuncio[]> => {
+export const getAnuncios = async (db: admin.firestore.Firestore): Promise<Anuncio[]> => {
   try {
-    const querySnapshot = await getDocs(anunciosCollectionRef);
+    const anunciosCollectionRef = db.collection("anuncio");
+    const querySnapshot = await anunciosCollectionRef.get();
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data() as Omit<Anuncio, 'id'>
@@ -45,14 +46,16 @@ export const getAnuncios = async (): Promise<Anuncio[]> => {
 };
 
 //obter anuncio especifico
-export const getAnuncioById = async (id: string): Promise<Anuncio | null> => {
+export const getAnuncioById = async (db: admin.firestore.Firestore, id: string): Promise<Anuncio | null> => {
   try {
-    const docRef = doc(db, "anuncios", id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
+    console.log("Attempting to fetch anuncio with ID:", id);
+    const docRef = db.collection("anuncio").doc(id);
+    const docSnap = await docRef.get();
+    if (docSnap.exists) {
+      console.log("Anuncio found!");
       return { id: docSnap.id, ...docSnap.data() as Omit<Anuncio, 'id'> };
     } else {
-      console.log("No such document!");
+      console.log("No such document in Firestore for ID:", id);
       return null;
     }
   } catch (error) {
@@ -62,20 +65,20 @@ export const getAnuncioById = async (id: string): Promise<Anuncio | null> => {
 };
 
 // atualizar anuncio
-export const updateAnuncio = async (id: string, updatedData: Partial<Omit<Anuncio, 'id' | 'userId' | 'createdAt'>>): Promise<void> => {
+export const updateAnuncio = async (db: admin.firestore.Firestore, id: string, updatedData: Partial<Omit<Anuncio, 'id' | 'userId' | 'createdAt'>>): Promise<void> => {
   try {
-    const anuncioRef = doc(db, "anuncios", id);
-    await updateDoc(anuncioRef, updatedData);
+    const anuncioRef = db.collection("anuncio").doc(id);
+    await anuncioRef.update(updatedData);
   } catch (error) {
     console.error("Error updating anuncio: ", error);
     throw error;
   }
 };
 
-export const deleteAnuncio = async (id: string): Promise<void> => {
+export const deleteAnuncio = async (db: admin.firestore.Firestore, id: string): Promise<void> => {
   try {
-    const anuncioRef = doc(db, "anuncios", id);
-    await deleteDoc(anuncioRef);
+    const anuncioRef = db.collection("anuncio").doc(id);
+    await anuncioRef.delete();
   } catch (error) {
     console.error("Error deleting anuncio: ", error);
     throw error;
@@ -83,10 +86,10 @@ export const deleteAnuncio = async (id: string): Promise<void> => {
 };
 
 // obter anúncios de um usuário específico
-export const getAnunciosByUserId = async (userId: string): Promise<Anuncio[]> => {
+export const getAnunciosByUserId = async (db: admin.firestore.Firestore, userId: string): Promise<Anuncio[]> => {
   try {
-    const q = query(anunciosCollectionRef, where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
+    const anunciosCollectionRef = db.collection("anuncio");
+    const querySnapshot = await anunciosCollectionRef.where("userId", "==", userId).get();
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data() as Omit<Anuncio, 'id'>

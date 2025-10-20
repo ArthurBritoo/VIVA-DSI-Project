@@ -3,7 +3,7 @@ import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios'; // Import axios
 import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,8 +13,8 @@ import { RootStackParamList } from '../types/navigation';
 
 const { width } = Dimensions.get('window');
 
-// Defina a URL base do seu backend
-const BASE_URL = 'https://e0084b3e4609.ngrok-free.app'; // <<<<< VERIFIQUE ESTE IP >>>>>
+// URL base do seu backend
+const BASE_URL = "https://5921093946ac.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -41,7 +41,8 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null); // Estado para o usuário atual
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [idToken, setIdToken] = useState<string | null>(null);
 
   const [formTitulo, setFormTitulo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
@@ -49,12 +50,22 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formImageUrl, setFormImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
-      setLoading(false); 
+      if (user) {
+        try {
+          const token = await user.getIdToken(true);
+          setIdToken(token);
+        } catch (error) {
+          console.error("Error getting ID token:", error);
+          setIdToken(null);
+        }
+      } else {
+        setIdToken(null);
+      }
     });
 
-    return () => unsubscribe(); 
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -94,7 +105,9 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     };
 
     loadAnuncio();
-  }, [anuncioId, currentUser]); 
+  }, [anuncioId, currentUser]);
+
+  const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
 
   const handlePickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -124,8 +137,8 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     let finalImageUrl = formImageUrl;
 
     try {
-      // REMOVIDO: Lógica de upload para o Firebase Storage
-      // Agora, se uma imagem local foi selecionada, usamos seu URI diretamente
+      const headers = { 'Authorization': `Bearer ${idToken}` };
+
       if (!finalImageUrl) {
         finalImageUrl = "https://via.placeholder.com/400x300?text=Sem+Imagem";
       }
@@ -139,15 +152,24 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       };
 
       if (anuncioId) {
-        const response = await axios.put<Anuncio>(`${BASE_URL}/anuncios/${anuncioId}`, anuncioDataToSave);
+        const response = await axios.put<Anuncio>(
+          `${BASE_URL}/anuncios/${anuncioId}`,
+          anuncioDataToSave,
+          { headers }
+        );
         setAnuncio(response.data);
         Alert.alert("Sucesso", "Anúncio atualizado com sucesso!");
       } else {
-        const response = await axios.post<Anuncio>(`${BASE_URL}/anuncios`, { anuncioData: anuncioDataToSave, userId: currentUser.uid });
+        const response = await axios.post<Anuncio>(
+          `${BASE_URL}/anuncios`,
+          { anuncioData: anuncioDataToSave, userId: currentUser.uid },
+          { headers }
+        );
         setAnuncio(response.data);
         Alert.alert("Sucesso", "Anúncio criado com sucesso!");
         navigation.setParams({ anuncioId: response.data.id });
       }
+
       setIsEditing(false);
     } catch (error) {
       Alert.alert("Erro", "Houve um problema ao salvar o anúncio.");
@@ -159,17 +181,17 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
   const handleCancelEdit = () => {
     setIsEditing(false);
+
     if (anuncio && anuncioId) {
+      // Restaura os valores originais
       setFormTitulo(anuncio.titulo);
       setFormDescricao(anuncio.descricao);
       setFormPreco(anuncio.preco.toString());
       setFormImageUrl(anuncio.imageUrl);
     } else {
-      navigation.goBack(); 
+      navigation.goBack();
     }
   };
-
-  const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
 
   if (loading) {
     return (
