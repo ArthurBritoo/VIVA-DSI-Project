@@ -1,6 +1,6 @@
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Image,
@@ -52,75 +52,96 @@ export default function App() {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
+  // 🔹 Atualiza token de autenticação quando o usuário muda
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
-      if (user) {
-        try {
-          const token = await user.getIdToken(true);//forçar refresh
-          setIdToken(token);
-        } catch (error) {
-          console.error("Error getting ID token:", error);
-          setIdToken(null);
-        }
-      } else {
+
+      if (!user) {
         setIdToken(null);
-      }
-    });
-
-    return () => unsubscribe(); // Cleanup subscription on unmount
-  }, []);
-
-  useEffect(() => {
-    const fetchAnuncios = async () => {
-      if (!idToken) {
-        console.log("IdToken não disponível, pulando chamada de API.");
         return;
       }
 
       try {
-        const response = await fetch('https://5921093946ac.ngrok-free.app/anuncios', {
-          headers: {
-            'Authorization': `Bearer ${idToken}`, // Add Authorization header
-          },
-        });
-        console.log("API Response Status:", response.status); // Log the response status
-        const data = await response.json();
-        console.log("API Data:", data); // Log the raw data from the API
-
-        let anunciosToProcess: any[] = [];
-        if (Array.isArray(data)) {
-          anunciosToProcess = data;
-        } else if (data && Array.isArray(data.anuncios)) { // Assuming data might be an object with an 'anuncios' key
-          anunciosToProcess = data.anuncios;
-        } else {
-          console.warn("API response is not an array or does not contain an 'anuncios' array:", data);
-          setRecentlyViewed([]);
-          return;
-        }
-
-        const anunciosList: Anuncio[] = anunciosToProcess.map((anuncio: any) => ({
-          id: anuncio.id,
-          titulo: anuncio.titulo,
-          price: anuncio.preco, 
-          imageUrl: anuncio.imageUrl,
-        }));
-        setRecentlyViewed(anunciosList);
+        const token = await user.getIdToken(true); // força refresh
+        setIdToken(token);
       } catch (error) {
-        console.error("Error fetching anuncios: ", error);
+        console.error("Erro ao obter ID token:", error);
+        setIdToken(null);
       }
-    };
+    });
 
-    fetchAnuncios();
-  }, [idToken]);
+    return unsubscribe;
+  }, []);
 
-  const handlePress = (tabName: keyof RootStackParamList, anuncioId?: string) => {
-    if (tabName === 'AnuncioDetail') {
-      navigation.navigate('AnuncioDetail', { anuncioId });
-    } else {
-      navigation.navigate(tabName, undefined);
+  // 🔹 Função de busca dos anúncios
+  const fetchAnuncios = useCallback(async () => {
+    if (!idToken) {
+      console.log("IdToken não disponível, pulando chamada de API.");
+      return;
     }
 
+    try {
+      const response = await fetch("https://8f441ea66dd0.ngrok-free.app/anuncios", {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      console.log("Status da resposta da API:", response.status);
+      const data = await response.json();
+      console.log("Dados recebidos da API:", data);
+
+      let anunciosToProcess: any[] = [];
+
+      if (Array.isArray(data)) {
+        anunciosToProcess = data;
+      } else if (data && Array.isArray(data.anuncios)) {
+        anunciosToProcess = data.anuncios;
+      } else {
+        console.warn("Resposta inesperada da API:", data);
+        setRecentlyViewed([]);
+        return;
+      }
+
+      const anunciosList: Anuncio[] = anunciosToProcess.map((anuncio: any) => ({
+        id: anuncio.id,
+        titulo: anuncio.titulo,
+        price: anuncio.preco,
+        imageUrl: anuncio.imageUrl,
+      }));
+
+      setRecentlyViewed(anunciosList);
+    } catch (error) {
+      console.error("Erro ao buscar anúncios:", error);
+      setRecentlyViewed([]);
+    }
+  }, [idToken]);
+
+  // 🔹 Busca inicial quando o token é carregado
+  useEffect(() => {
+    if (idToken) {
+      fetchAnuncios();
+    }
+  }, [idToken, fetchAnuncios]);
+
+  // 🔹 Atualiza anúncios sempre que a tela volta ao foco
+  useFocusEffect(
+    useCallback(() => {
+      if (idToken) {
+        console.log("Tela em foco — atualizando anúncios.");
+        fetchAnuncios();
+      }
+    }, [idToken, fetchAnuncios])
+  );
+
+  // 🔹 Navegação entre telas
+  const handlePress = (tabName: keyof RootStackParamList, anuncioId?: string) => {
+    if (tabName === "AnuncioDetail") {
+      navigation.navigate("AnuncioDetail", { anuncioId });
+    } else {
+      navigation.navigate(tabName as any);
+    }
   };
 
   

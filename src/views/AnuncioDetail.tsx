@@ -14,7 +14,7 @@ import { RootStackParamList } from '../types/navigation';
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://5921093946ac.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://8f441ea66dd0.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
