@@ -1,10 +1,10 @@
 // Import the functions you need from the Firebase SDKs
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage'; // Importar AsyncStorage
 import { initializeApp } from "firebase/app";
-import { initializeAuth, getReactNativePersistence } from "firebase/auth";
+import { getReactNativePersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage"; // Importar getStorage
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage'; // Importar AsyncStorage
 
 // TODO: Replace the following with your app's Firebase project configuration
 // For Firebase JavaScript SDK v7.20.0 and later, `measurementId` is optional

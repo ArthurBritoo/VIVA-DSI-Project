@@ -34,7 +34,7 @@ const savedProperties = [
     title: "Luxury Apartment with City Views",
     details: "2 beds · 2 baths · 1,200 sq ft",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAC2N2JwiUvCl_ti9LPXZWLUqcX9jW-emlV40cIctx75XHefGGD8KiA9chy5rGIzdC0uX_2kKh845TCF2w0Kq4YpTO_MU_PUpmPPRjVN165sEq9DhTZ9O4uRKa9Fd_g_oOChiYHiR4dUB8TPrQm8dEYFf0u6btlexobLoOC2pbT_-5Ct8APPTj0MVa09xfc5ulWsGnZh4Z0FBMn1toE7xf601DXLKqoll9tmFMf_EJ--G5KxpHdfjQo4uAkSLQ1c0caNXdofq21xs",
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuAC2N2JwiUvCl_ti9LPXZWLUqcX9jW-emlV40cIctx75XHefGGD8KiA9chy5rGIzdC0uX_2kKh845TCf2w0Kq4YpTO_MU_PUpmKPRjVN165sEq9DhTZ9O4uRKa9Fd_g_oOChiYHiR4dUB8TPrQm8dEYFf0u6btlexobLoOC2pbT_-5Ct8APPTj0MVa09xfc5ulWsGnZh4Z0FBMn1toE7xf601DXLKqoll9tmFMf_EJ--G5KxpHdfjQo4uAkSLwQ1c0caNXdofq21xs",
   },
   {
     id: "2",
@@ -42,7 +42,7 @@ const savedProperties = [
     title: "Charming Townhouse in Historic District",
     details: "3 beds · 2.5 baths · 1,800 sq ft",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavOwuUUG9sl5cpQpnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
+      "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavdOWvUUG9sl5cpQnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
   },
 ];
 
@@ -82,7 +82,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://8f441ea66dd0.ngrok-free.app/anuncios", {
+      const response = await fetch("https://fbb29161ca15.ngrok-free.app/anuncios", {
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
@@ -179,9 +179,6 @@ export default function App() {
           ))}
         </View>
 
-        <TouchableOpacity onPress={() => navigation.navigate('AnuncioDetail', { anuncioId: '1' })}>
-          <Text >ver detalhe de anuncio </Text>
-        </TouchableOpacity>
 
         {/* Recently Viewed */}
         <View style={styles.section}>
@@ -274,10 +271,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   fabText: {
-    fontSize: 40,
+    fontSize: 30,
     color: 'white',
     fontWeight: 'bold',
-    lineHeight: 70, // Added to center the '+' vertically
+    lineHeight: 60, // Added to center the '+' vertically
   },
 
   filterActive: { backgroundColor: "#dbeafe" },
