@@ -9,6 +9,7 @@ type UserProfile = {
   nome: string;
   telefone?: string;
   foto?: string;
+  idToken?: string; // Add idToken to UserProfile
 };
 
 type UserContextType = {
@@ -27,6 +28,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('Firebase user:', firebaseUser);
       if (firebaseUser) {
+        const idToken = await firebaseUser.getIdToken(); // Get the ID token
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
@@ -37,6 +39,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: firebaseUser.email || '',
             nome: userData.nome || firebaseUser.email?.split('@')[0] || '',
             telefone: userData.telefone || undefined,
+            idToken: idToken, // Store the ID token
           });
         } else {
           console.warn('No user profile found in Firestore');
@@ -44,6 +47,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             uid: firebaseUser.uid,
             email: firebaseUser.email || '',
             nome: firebaseUser.email?.split('@')[0] || '',
+            idToken: idToken, // Store the ID token even if no profile in Firestore
           });
         }
       } else {

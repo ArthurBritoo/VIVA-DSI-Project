@@ -1,54 +1,31 @@
-import React from "react";
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  View,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  FlatList,
-  Image,
+  View,
 } from "react-native";
-import {SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons'; // Import Ionicons
+import { SafeAreaView } from "react-native-safe-area-context";
+import { auth } from "../assets/firebaseConfig";
+import BottomNav from "../components/BottomNav";
+import Header from "../components/Header";
+import { RootStackParamList } from "../types/navigation";
 
-// Define the RootStackParamList type here
-type RootStackParamList = {
-  Home: undefined;
-  Buscar: undefined;
-  Perfil: undefined;
-  
-};
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-
-
-const recentlyViewed = [
-  {
-    id: "1",
-    title: "Modern Home in Suburbia",
-    price: "$450,000",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCe3tCGTd5Z_GRS3KoUYpvrM66m_8NUHrpZOcdjlzc_hVRxMB3WBIfWPmxMKKNxwxPioqvhAAEHN2g61KoPgTGZ3FxDt9-NxQDPOlaOfvAsaiI62dGLj-q_9yYppjdd3i9wIZLPEhiLgCx8ERyaKLwTuv68FPoSPjsxzfhWSPsnYKQOJ6mqXaD1QYp2m8UNdX03OIQFleZOGNqugxJgEUXmrQ4s70GJ3J4fMvH0Fn0MJoZGYg9AAlfN-6pryYWGgh-vEtiACo2rnug",
-  },
-  {
-    id: "2",
-    title: "Cozy Cottage Retreat",
-    price: "$275,000",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAt8atNVwwMEwiuYwWFHG5qD1cWRQgJ1kv5o0G_rjxY42I8KCeEkDEG_p6q618QogJbMbnUGjLhZZGPCyKWjHKYfSfB0iDJWbTaoDxCq2DnG-mC-abLoWRNRcKbS0YrhO3TAuaPuxXs5F3C4mTgGac4oHkcYG0ZuPP1O_OVEooRtO-CBp5zDijoUh7CpRoMVjNMK-C3WZpACuC9l4JAfdt4tI3p3dLh0Nhx5So6Ps59J5QPK0mVw8Fb8iC7SIDUsUTtj-cx-7_1-Aw",
-  },
-  {
-    id: "3",
-    title: "Urban Loft Living",
-    price: "$320,000",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCtKiWs6Acr22jgJpEQoKEU8rF5dGFD7s479FS0FH_sSLbJUNgJKefIn1WebtDhbWEEt1EKxqptT0AuysOFnfHvXc3DoXTc91BNf__wV-KxczdWzlO2eFVqmrttBdbHXQitFViLFGg2ecIBr5jfH_9mjcLLeJopAIIPyAYN-5dF-Vu6lJdU0ziJTc1eO203OAZidqCWuQwutNKjmbPFsO1AC4dyqtT6YBNZLfwUlOVMHDyaYzsVCSs4PQ1KxdLiBebRW9dDC9dV7Tk",
-  },
-];
+interface Anuncio {
+  id: string;
+  titulo: string;
+  price: string;
+  imageUrl: string;
+}
 
 const savedProperties = [
   {
@@ -71,18 +48,109 @@ const savedProperties = [
 
 export default function App() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
+  const [recentlyViewed, setRecentlyViewed] = useState<Anuncio[]>([]);
+  const [idToken, setIdToken] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
+
+  // 🔹 Atualiza token de autenticação quando o usuário muda
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setCurrentUser(user);
+
+      if (!user) {
+        setIdToken(null);
+        return;
+      }
+
+      try {
+        const token = await user.getIdToken(true); // força refresh
+        setIdToken(token);
+      } catch (error) {
+        console.error("Erro ao obter ID token:", error);
+        setIdToken(null);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // 🔹 Função de busca dos anúncios
+  const fetchAnuncios = useCallback(async () => {
+    if (!idToken) {
+      console.log("IdToken não disponível, pulando chamada de API.");
+      return;
+    }
+
+    try {
+      const response = await fetch("https://fbb29161ca15.ngrok-free.app/anuncios", {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      console.log("Status da resposta da API:", response.status);
+      const data = await response.json();
+      console.log("Dados recebidos da API:", data);
+
+      let anunciosToProcess: any[] = [];
+
+      if (Array.isArray(data)) {
+        anunciosToProcess = data;
+      } else if (data && Array.isArray(data.anuncios)) {
+        anunciosToProcess = data.anuncios;
+      } else {
+        console.warn("Resposta inesperada da API:", data);
+        setRecentlyViewed([]);
+        return;
+      }
+
+      const anunciosList: Anuncio[] = anunciosToProcess.map((anuncio: any) => ({
+        id: anuncio.id,
+        titulo: anuncio.titulo,
+        price: anuncio.preco,
+        imageUrl: anuncio.imageUrl,
+      }));
+
+      setRecentlyViewed(anunciosList);
+    } catch (error) {
+      console.error("Erro ao buscar anúncios:", error);
+      setRecentlyViewed([]);
+    }
+  }, [idToken]);
+
+  // 🔹 Busca inicial quando o token é carregado
+  useEffect(() => {
+    if (idToken) {
+      fetchAnuncios();
+    }
+  }, [idToken, fetchAnuncios]);
+
+  // 🔹 Atualiza anúncios sempre que a tela volta ao foco
+  useFocusEffect(
+    useCallback(() => {
+      if (idToken) {
+        console.log("Tela em foco — atualizando anúncios.");
+        fetchAnuncios();
+      }
+    }, [idToken, fetchAnuncios])
+  );
+
+  // 🔹 Navegação entre telas
+  const handlePress = (tabName: keyof RootStackParamList, anuncioId?: string) => {
+    if (tabName === "AnuncioDetail") {
+      navigation.navigate("AnuncioDetail", { anuncioId });
+    } else {
+      navigation.navigate(tabName as any);
+    }
+  };
+
   
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Home</Text>
-        <TouchableOpacity>
-          <Text style={styles.menuButton}>☰</Text>
-        </TouchableOpacity>
-      </View>
+      <Header title="Home" onMenuPress={() => {}} />
 
-      <ScrollView style={{ flex: 1 }}>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {/* Search */}
         <View style={styles.searchContainer}>
           <TextInput
@@ -111,29 +179,30 @@ export default function App() {
           ))}
         </View>
 
+
         {/* Recently Viewed */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recently Viewed</Text>
+          <Text style={styles.sectionTitle}>Vistos Recentemente</Text>
           <FlatList
             data={recentlyViewed}
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Image source={{ uri: item.image }} style={styles.cardImage} />
+              <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
+                <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
                 <Text style={styles.cardTitle} numberOfLines={1}>
-                  {item.title}
+                  {item.titulo}
                 </Text>
                 <Text style={styles.cardPrice}>{item.price}</Text>
-              </View>
+              </TouchableOpacity>
             )}
           />
         </View>
 
         {/* Saved Properties */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Saved Properties</Text>
+          <Text style={styles.sectionTitle}>Favoritos</Text>
           {savedProperties.map((item) => (
             <View key={item.id} style={styles.savedCard}>
               <View style={{ flex: 1 }}>
@@ -149,36 +218,21 @@ export default function App() {
         </View>
       </ScrollView>
 
+      {/* Floating Action Button */}
+      <TouchableOpacity style={styles.fab} onPress={() =>  handlePress('AnuncioDetail')}>
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+
       {/* Bottom Nav */}
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.navItem} onPress={()=> navigation.navigate('Buscar')}>
-          <Text style={styles.navIcon}>🔍</Text>
-          <Text style={styles.navLabel}>Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, ]} onPress={()=> navigation.navigate('Home')}>
-          <Text style={[styles.navIcon, { color: "#137fec" }]}>🏠</Text>
-          <Text style={[styles.navLabel, { color: "#137fec" }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={()=> navigation.navigate('Perfil')}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNav/>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f6f7f8" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#f6f7f8",
-  },
-  headerTitle: { fontSize: 18, fontWeight: "bold" },
-  menuButton: { fontSize: 20 },
+  
+
   searchContainer: { padding: 16 },
   searchInput: {
     backgroundColor: "#e5e7eb",
@@ -199,6 +253,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
   },
+
+  fab: {
+    position: 'absolute',
+    width: 70,
+    height: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 20,
+    bottom: 135, // Adjust to be above the BottomNav
+    backgroundColor: '#137fec',
+    borderRadius: 40,
+    elevation: 8, // for Android shadow
+    shadowColor: '#000', // for iOS shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  fabText: {
+    fontSize: 30,
+    color: 'white',
+    fontWeight: 'bold',
+    lineHeight: 60, // Added to center the '+' vertically
+  },
+
   filterActive: { backgroundColor: "#dbeafe" },
   filterText: { fontSize: 14, color: "#111" },
   section: { padding: 16 },

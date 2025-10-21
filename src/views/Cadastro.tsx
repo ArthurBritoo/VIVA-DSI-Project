@@ -78,6 +78,7 @@ export default function Cadastro({ navigation }: CadastroProps) {
   };
 
   return (
+    
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header com botão de fechar */}
       <View style={styles.header}>
