@@ -14,7 +14,7 @@ import { RootStackParamList } from '../types/navigation';
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://fbb29161ca15.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://9c1cac2277bf.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -83,7 +83,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setAnuncio(fetchedAnuncio);
           setFormTitulo(fetchedAnuncio.titulo);
           setFormDescricao(fetchedAnuncio.descricao);
-          setFormPreco(fetchedAnuncio.preco.toString());
+          setFormPreco(fetchedAnuncio.preco?.toString() || ''); // Safely convert preco to string
           setFormImageUrl(fetchedAnuncio.imageUrl);
         } catch (error) {
           console.error("Error fetching anuncio:", error);
@@ -158,6 +158,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           { headers }
         );
         setAnuncio(response.data);
+        // Update form fields with the new data after successful save
+        setFormTitulo(response.data.titulo);
+        setFormDescricao(response.data.descricao);
+        setFormPreco(response.data.preco?.toString() || ''); // Safely convert preco to string
+        setFormImageUrl(response.data.imageUrl);
         Alert.alert("Sucesso", "Anúncio atualizado com sucesso!");
       } else {
         const response = await axios.post<Anuncio>(
@@ -166,6 +171,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           { headers }
         );
         setAnuncio(response.data);
+        // Update form fields with the new data after successful save for new ad
+        setFormTitulo(response.data.titulo);
+        setFormDescricao(response.data.descricao);
+        setFormPreco(response.data.preco?.toString() || ''); // Safely convert preco to string
+        setFormImageUrl(response.data.imageUrl);
         Alert.alert("Sucesso", "Anúncio criado com sucesso!");
         navigation.setParams({ anuncioId: response.data.id });
       }
@@ -179,6 +189,44 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     }
   };
 
+  const handleDelete = async () => {
+    if (!anuncioId || !currentUser || !idToken) {
+      Alert.alert("Erro", "Não foi possível deletar o anúncio.");
+      return;
+    }
+
+    Alert.alert(
+      "Confirmar Exclusão",
+      "Tem certeza que deseja deletar este anúncio? Esta ação não pode ser desfeita.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Deletar",
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const headers = { 'Authorization': `Bearer ${idToken}` };
+              await axios.delete(`${BASE_URL}/anuncios/${anuncioId}`, { headers });
+              Alert.alert("Sucesso", "Anúncio deletado com sucesso!");
+              navigation.goBack(); // Voltar para a tela anterior (ex: Home ou Meus Anúncios)
+            } catch (error) {
+              Alert.alert("Erro", "Houve um problema ao deletar o anúncio.");
+              console.error("Erro ao deletar anúncio:", error);
+            } finally {
+              setLoading(false);
+            }
+          },
+          style: "destructive",
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+
   const handleCancelEdit = () => {
     setIsEditing(false);
 
@@ -186,7 +234,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       // Restaura os valores originais
       setFormTitulo(anuncio.titulo);
       setFormDescricao(anuncio.descricao);
-      setFormPreco(anuncio.preco.toString());
+      setFormPreco(anuncio.preco?.toString() || ''); // Safely convert preco to string
       setFormImageUrl(anuncio.imageUrl);
     } else {
       navigation.goBack();
@@ -331,6 +379,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
             <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
               <Text style={styles.buttonText}>Salvar Anúncio</Text>
             </TouchableOpacity>
+            {isOwner && anuncioId && (
+              <TouchableOpacity onPress={handleDelete} style={[styles.button, styles.deleteButton]}>
+                <Text style={styles.buttonText}>Deletar Anúncio</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={handleCancelEdit} style={[styles.button, styles.cancelButton]}>
               <Text style={styles.buttonText}>Cancelar</Text>
             </TouchableOpacity>
@@ -592,6 +645,9 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: '#dc3545',
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545', // Cor para o botão de deletar
   },
   fab: {
     position: 'absolute',
