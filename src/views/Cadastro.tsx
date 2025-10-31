@@ -4,17 +4,16 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Image,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserContext } from '../contexts/UserContext';
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from '../assets/firebaseConfig';
+import Toast from 'react-native-toast-message';
 
 type RootStackParamList = {
   Login: undefined;
@@ -40,11 +39,19 @@ export default function Cadastro({ navigation }: CadastroProps) {
 
   const handleCadastro = async () => {
     if (!nome || !email || !telefone || !senha || !repitaSenha) {
-      Alert.alert('Erro', 'Preencha todos os campos');
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Preencha todos os campos',
+      });
       return;
     }
     if (senha !== repitaSenha) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'As senhas não coincidem',
+      });
       return;
     }
 
@@ -61,7 +68,11 @@ export default function Cadastro({ navigation }: CadastroProps) {
         createdAt: new Date(),
       });
 
-      Alert.alert('Sucesso', 'Cadastro realizado!');
+      Toast.show({
+        type: 'success',
+        text1: 'Sucesso',
+        text2: 'Cadastro realizado!',
+      });
       navigation.navigate('Login');
     } catch (error: any) {
       let errorMessage = 'Ocorreu um erro ao cadastrar. Tente novamente.';
@@ -72,7 +83,11 @@ export default function Cadastro({ navigation }: CadastroProps) {
       } else if (error.code === 'auth/weak-password') {
         errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
       }
-      Alert.alert('Erro de Cadastro', errorMessage);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro de Cadastro',
+        text2: errorMessage,
+      });
       console.error("Registration Error:", error.message);
     }
   };
@@ -150,6 +165,7 @@ export default function Cadastro({ navigation }: CadastroProps) {
           </Text>
         </Text>
       </View>
+      <Toast />
     </ScrollView>
   );
 }

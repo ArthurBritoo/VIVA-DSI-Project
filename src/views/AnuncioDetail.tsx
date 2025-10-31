@@ -7,6 +7,7 @@ import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from 'react-native-toast-message';
 import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será removido daqui)
 import BottomNav from '../components/BottomNav';
 import { RootStackParamList } from '../types/navigation';
@@ -14,7 +15,7 @@ import { RootStackParamList } from '../types/navigation';
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://fbb29161ca15.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://55f50e34bd5f.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -83,11 +84,15 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setAnuncio(fetchedAnuncio);
           setFormTitulo(fetchedAnuncio.titulo);
           setFormDescricao(fetchedAnuncio.descricao);
-          setFormPreco(fetchedAnuncio.preco.toString());
+          setFormPreco(fetchedAnuncio.preco?.toString() || ''); // Safely convert preco to string
           setFormImageUrl(fetchedAnuncio.imageUrl);
         } catch (error) {
           console.error("Error fetching anuncio:", error);
-          Alert.alert("Erro", "Não foi possível carregar o anúncio.");
+          Toast.show({
+            type: 'error',
+            text1: 'Erro',
+            text2: 'Não foi possível carregar o anúncio.',
+          });
           setAnuncio(null);
         } finally {
           setLoading(false);
@@ -124,12 +129,20 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
   const handleSave = async () => {
     if (!formTitulo || !formDescricao || !formPreco) {
-      Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios: Título, Descrição e Preço.");
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Por favor, preencha todos os campos obrigatórios: Título, Descrição e Preço.',
+      });
       return;
     }
 
     if (!currentUser) {
-      Alert.alert("Erro", "Você precisa estar logado para salvar um anúncio.");
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Você precisa estar logado para salvar um anúncio.',
+      });
       return;
     }
 
@@ -158,7 +171,23 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           { headers }
         );
         setAnuncio(response.data);
-        Alert.alert("Sucesso", "Anúncio atualizado com sucesso!");
+        // Update form fields with the new data after successful save
+        setFormTitulo(response.data.titulo);
+        setFormDescricao(response.data.descricao);
+        setFormPreco(response.data.preco?.toString() || ''); // Safely convert preco to string
+        setFormImageUrl(response.data.imageUrl);
+        Toast.show({
+          type: 'success',
+          text1: 'Sucesso',
+          text2: 'Anúncio atualizado com sucesso!',
+        });
+
+        // Adiciona um pequeno atraso antes de sair do modo de edição e parar o loading
+        setTimeout(() => {
+          setIsEditing(false);
+          setLoading(false); // Movido para dentro do setTimeout
+        }, 1000); // 1 segundo de atraso
+
       } else {
         const response = await axios.post<Anuncio>(
           `${BASE_URL}/anuncios`,
@@ -166,18 +195,73 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           { headers }
         );
         setAnuncio(response.data);
-        Alert.alert("Sucesso", "Anúncio criado com sucesso!");
-        navigation.setParams({ anuncioId: response.data.id });
+        // Update form fields with the new data after successful save for new ad
+        setFormTitulo(response.data.titulo);
+        setFormDescricao(response.data.descricao);
+        setFormPreco(response.data.preco?.toString() || ''); // Safely convert preco to string
+        setFormImageUrl(response.data.imageUrl);
+        Toast.show({
+          type: 'success',
+          text1: 'Sucesso',
+          text2: 'Anúncio criado com sucesso!',
+        });
+
+          // Adiciona um pequeno atraso antes de sair do modo de edição e parar o loading
+          setTimeout(() => {
+            setIsEditing(false);
+            navigation.setParams({ anuncioId: response.data.id });
+            setLoading(false); // Movido para dentro do setTimeout
+          }, 1000); // 1 segundo de atraso
       }
 
-      setIsEditing(false);
     } catch (error) {
-      Alert.alert("Erro", "Houve um problema ao salvar o anúncio.");
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Houve um problema ao salvar o anúncio.',
+      });
       console.error("Erro ao salvar anúncio:", error);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Garante que o loading pare mesmo em caso de erro
     }
   };
+
+  const handleDelete = async () => {
+    if (!anuncioId || !currentUser || !idToken) {
+      Alert.alert("Erro", "Não foi possível deletar o anúncio.");
+      return;
+    }
+
+    Alert.alert(
+      "Confirmar Exclusão",
+      "Tem certeza que deseja deletar este anúncio? Esta ação não pode ser desfeita.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Deletar",
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const headers = { 'Authorization': `Bearer ${idToken}` };
+              await axios.delete(`${BASE_URL}/anuncios/${anuncioId}`, { headers });
+              Alert.alert("Sucesso", "Anúncio deletado com sucesso!");
+              navigation.goBack(); // Voltar para a tela anterior (ex: Home ou Meus Anúncios)
+            } catch (error) {
+              Alert.alert("Erro", "Houve um problema ao deletar o anúncio.");
+              console.error("Erro ao deletar anúncio:", error);
+            } finally {
+              setLoading(false);
+            }
+          },
+          style: "destructive",
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
 
   const handleCancelEdit = () => {
     setIsEditing(false);
@@ -186,7 +270,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       // Restaura os valores originais
       setFormTitulo(anuncio.titulo);
       setFormDescricao(anuncio.descricao);
-      setFormPreco(anuncio.preco.toString());
+      setFormPreco(anuncio.preco?.toString() || ''); // Safely convert preco to string
       setFormImageUrl(anuncio.imageUrl);
     } else {
       navigation.goBack();
@@ -213,7 +297,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   }
 
   if (!currentUser && anuncioId) {
-    Alert.alert("Aviso", "Você precisa estar logado para ver este anúncio.");
+    Toast.show({
+      type: 'info',
+      text1: 'Aviso',
+      text2: 'Você precisa estar logado para ver este anúncio.',
+    });
     navigation.navigate('Login'); 
     return null;
   }
@@ -331,6 +419,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
             <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
               <Text style={styles.buttonText}>Salvar Anúncio</Text>
             </TouchableOpacity>
+            {isOwner && anuncioId && (
+              <TouchableOpacity onPress={handleDelete} style={[styles.button, styles.deleteButton]}>
+                <Text style={styles.buttonText}>Deletar Anúncio</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={handleCancelEdit} style={[styles.button, styles.cancelButton]}>
               <Text style={styles.buttonText}>Cancelar</Text>
             </TouchableOpacity>
@@ -354,6 +447,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       )}
 
       <BottomNav/>
+      <Toast />
     </SafeAreaView>
   );
 }
@@ -592,6 +686,9 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: '#dc3545',
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545', // Cor para o botão de deletar
   },
   fab: {
     position: 'absolute',

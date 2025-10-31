@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../assets/firebaseConfig";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { IconButton } from 'react-native-paper';
+import Toast from 'react-native-toast-message';
 
 
 type RootStackParamList = {
@@ -31,7 +32,11 @@ export default function Redefinirsenha({ navigation }: RedefinirSenhaProps) {
   const handleRedefinir = async () => {
     
     if (!email) {
-      Alert.alert('Erro', 'Por favor, preencha o campo de e-mail.');
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Por favor, preencha o campo de e-mail.',
+      });
       return;
     }
 
@@ -41,9 +46,17 @@ export default function Redefinirsenha({ navigation }: RedefinirSenhaProps) {
     try {
       await sendPasswordResetEmail(auth, email);
       setShowSuccessMessage(true);
-      
+      Toast.show({
+        type: 'success',
+        text1: 'Sucesso',
+        text2: 'Um e-mail de redefinição de senha foi enviado para o seu endereço de e-mail.',
+      });
     } catch (error: any) {
-      Alert.alert('Erro', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: error.message,
+      });
     } finally {
       setLoading(false);
     }
@@ -112,6 +125,7 @@ export default function Redefinirsenha({ navigation }: RedefinirSenhaProps) {
           </Text>
         </TouchableOpacity>
       </View>
+      <Toast />
     </SafeAreaView>
   );
 }

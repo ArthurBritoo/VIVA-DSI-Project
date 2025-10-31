@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useUserContext } from '../contexts/UserContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from '../assets/firebaseConfig';
+import Toast from 'react-native-toast-message';
 
 type RootStackParamList = {
   Login: undefined;
@@ -38,15 +39,26 @@ export default function Login({ navigation }: LoginProps) {
     }
 
     if (!email || !senha) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Por favor, preencha todos os campos.',
+      });
       return;
     }
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, senha);
       // User is signed in. The onAuthStateChanged listener in UserContext will handle setting the currentUser.
-      Alert.alert('Login realizado', `Bem-vindo!`);
-      navigation.navigate('Home');//https://console.firebase.google.com/project/dsi-viva/authentication/users?hl=pt-br
+      Toast.show({
+        type: 'success',
+        text1: 'Login realizado',
+        text2: `Bem-vindo!`,
+      });
+      // Adiciona um pequeno atraso antes de navegar para a tela Home
+      setTimeout(() => {
+        navigation.navigate('Home');
+      }, 1000); // 1 segundo de atraso (ajuste conforme necessário)
     } catch (error: any) {
       let errorMessage = 'Ocorreu um erro ao fazer login. Tente novamente.';
       if (error.code === 'auth/invalid-email') {
@@ -58,7 +70,11 @@ export default function Login({ navigation }: LoginProps) {
       } else if (error.code === 'auth/invalid-credential') {
         errorMessage = 'Credenciais inválidas. Verifique seu email e senha.';
       }
-      Alert.alert('Erro de Login', errorMessage);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro de Login',
+        text2: errorMessage,
+      });
       console.error("Login Error:", error.message);
     }
   };
@@ -67,7 +83,7 @@ export default function Login({ navigation }: LoginProps) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => Alert.alert("Back pressed")}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Login</Text>
@@ -110,6 +126,7 @@ export default function Login({ navigation }: LoginProps) {
           <Text style={styles.signUpLink} onPress={() => navigation.navigate('Cadastro')}>Cadastre-se</Text>
         </Text>
       </View>
+      <Toast />
     </SafeAreaView>
   );
 }

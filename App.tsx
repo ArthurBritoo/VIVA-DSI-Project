@@ -10,6 +10,7 @@ import Perfil from './src/views/Perfil';
 import RedefinirSenha from './src/views/Redefinirsenha';
 import AnuncioDetail from './src/views/AnuncioDetail';
 import { RootStackParamList } from './src/types/navigation';
+import Toast from 'react-native-toast-message';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -27,6 +28,7 @@ export default function App() {
           <Stack.Screen name="RedefinirSenha" component={RedefinirSenha} />
           <Stack.Screen name="AnuncioDetail" component={AnuncioDetail} />
         </Stack.Navigator>
+        <Toast />
       </NavigationContainer>
     </UserProvider>
   );
