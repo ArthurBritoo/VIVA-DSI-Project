@@ -82,7 +82,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://9c1cac2277bf.ngrok-free.app/anuncios", {
+      const response = await fetch("https://55f50e34bd5f.ngrok-free.app/anuncios", {
         headers: {
           Authorization: `Bearer ${idToken}`,
         },

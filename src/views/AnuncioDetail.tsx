@@ -7,6 +7,7 @@ import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from 'react-native-toast-message';
 import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será removido daqui)
 import BottomNav from '../components/BottomNav';
 import { RootStackParamList } from '../types/navigation';
@@ -14,7 +15,7 @@ import { RootStackParamList } from '../types/navigation';
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://9c1cac2277bf.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://55f50e34bd5f.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -87,7 +88,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setFormImageUrl(fetchedAnuncio.imageUrl);
         } catch (error) {
           console.error("Error fetching anuncio:", error);
-          Alert.alert("Erro", "Não foi possível carregar o anúncio.");
+          Toast.show({
+            type: 'error',
+            text1: 'Erro',
+            text2: 'Não foi possível carregar o anúncio.',
+          });
           setAnuncio(null);
         } finally {
           setLoading(false);
@@ -124,12 +129,20 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
   const handleSave = async () => {
     if (!formTitulo || !formDescricao || !formPreco) {
-      Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios: Título, Descrição e Preço.");
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Por favor, preencha todos os campos obrigatórios: Título, Descrição e Preço.',
+      });
       return;
     }
 
     if (!currentUser) {
-      Alert.alert("Erro", "Você precisa estar logado para salvar um anúncio.");
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Você precisa estar logado para salvar um anúncio.',
+      });
       return;
     }
 
@@ -163,7 +176,18 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         setFormDescricao(response.data.descricao);
         setFormPreco(response.data.preco?.toString() || ''); // Safely convert preco to string
         setFormImageUrl(response.data.imageUrl);
-        Alert.alert("Sucesso", "Anúncio atualizado com sucesso!");
+        Toast.show({
+          type: 'success',
+          text1: 'Sucesso',
+          text2: 'Anúncio atualizado com sucesso!',
+        });
+
+        // Adiciona um pequeno atraso antes de sair do modo de edição e parar o loading
+        setTimeout(() => {
+          setIsEditing(false);
+          setLoading(false); // Movido para dentro do setTimeout
+        }, 1000); // 1 segundo de atraso
+
       } else {
         const response = await axios.post<Anuncio>(
           `${BASE_URL}/anuncios`,
@@ -176,16 +200,28 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         setFormDescricao(response.data.descricao);
         setFormPreco(response.data.preco?.toString() || ''); // Safely convert preco to string
         setFormImageUrl(response.data.imageUrl);
-        Alert.alert("Sucesso", "Anúncio criado com sucesso!");
-        navigation.setParams({ anuncioId: response.data.id });
+        Toast.show({
+          type: 'success',
+          text1: 'Sucesso',
+          text2: 'Anúncio criado com sucesso!',
+        });
+
+          // Adiciona um pequeno atraso antes de sair do modo de edição e parar o loading
+          setTimeout(() => {
+            setIsEditing(false);
+            navigation.setParams({ anuncioId: response.data.id });
+            setLoading(false); // Movido para dentro do setTimeout
+          }, 1000); // 1 segundo de atraso
       }
 
-      setIsEditing(false);
     } catch (error) {
-      Alert.alert("Erro", "Houve um problema ao salvar o anúncio.");
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Houve um problema ao salvar o anúncio.',
+      });
       console.error("Erro ao salvar anúncio:", error);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Garante que o loading pare mesmo em caso de erro
     }
   };
 
@@ -261,7 +297,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   }
 
   if (!currentUser && anuncioId) {
-    Alert.alert("Aviso", "Você precisa estar logado para ver este anúncio.");
+    Toast.show({
+      type: 'info',
+      text1: 'Aviso',
+      text2: 'Você precisa estar logado para ver este anúncio.',
+    });
     navigation.navigate('Login'); 
     return null;
   }
@@ -407,6 +447,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       )}
 
       <BottomNav/>
+      <Toast />
     </SafeAreaView>
   );
 }
