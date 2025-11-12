@@ -9,6 +9,7 @@ import Buscar from './src/views/Buscar';
 import Perfil from './src/views/Perfil';
 import RedefinirSenha from './src/views/Redefinirsenha';
 import AnuncioDetail from './src/views/AnuncioDetail';
+import EditarPerfil from './src/views/EditarPerfil'; // ajuste o caminho se necessário
 import { RootStackParamList } from './src/types/navigation';
 import Toast from 'react-native-toast-message';
 
@@ -27,6 +28,7 @@ export default function App() {
           <Stack.Screen name="Perfil" component={Perfil} />
           <Stack.Screen name="RedefinirSenha" component={RedefinirSenha} />
           <Stack.Screen name="AnuncioDetail" component={AnuncioDetail} />
+          <Stack.Screen name="EditarPerfil" component={EditarPerfil} />
         </Stack.Navigator>
         <Toast />
       </NavigationContainer>

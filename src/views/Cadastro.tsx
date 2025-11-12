@@ -11,7 +11,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserContext } from '../contexts/UserContext';
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { setDoc, doc } from "firebase/firestore";
 import { auth, db } from '../assets/firebaseConfig';
 import Toast from 'react-native-toast-message';
 
@@ -62,10 +62,10 @@ export default function Cadastro({ navigation }: CadastroProps) {
       // Store additional user profile information in Firestore
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
-        nome: nome,
-        email: email,
-        telefone: telefone,
-        createdAt: new Date(),
+        email: user.email,
+        nome: nome, // ou o que o usuário preencheu
+        telefone: telefone || '',
+        foto: '',
       });
 
       Toast.show({

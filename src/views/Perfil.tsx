@@ -15,6 +15,7 @@ type RootStackParamList = {
   Buscar: undefined;
   Perfil: undefined;
   RedefinirSenha: undefined;
+  EditarPerfil: undefined;
 };
 
 export default function Perfil() {
@@ -42,7 +43,10 @@ export default function Perfil() {
               style={styles.avatar}
             />
             <Text style={styles.nameText}>{currentUser ? currentUser.nome : 'Usuário'}</Text>
-            <TouchableOpacity style={styles.editProfileButton}>
+            <TouchableOpacity
+              style={styles.editProfileButton}
+              onPress={() => navigation.navigate('EditarPerfil')}
+            >
               <Text style={styles.editProfileButtonText}>Edit Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
