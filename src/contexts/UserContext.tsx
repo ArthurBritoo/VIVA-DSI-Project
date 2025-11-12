@@ -39,6 +39,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: firebaseUser.email || '',
             nome: userData.nome || firebaseUser.email?.split('@')[0] || '',
             telefone: userData.telefone || undefined,
+            foto: userData.foto || undefined, // <-- ADICIONE ESTA LINHA!
             idToken: idToken, // Store the ID token
           });
         } else {

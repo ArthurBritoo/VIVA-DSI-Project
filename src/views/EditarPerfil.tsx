@@ -6,6 +6,7 @@ import { doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../assets/firebaseConfig';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 
 export default function EditarPerfil() {
   const navigation = useNavigation<any>();
@@ -23,7 +24,6 @@ export default function EditarPerfil() {
   const handlePickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
       if (permissionResult.granted === false) {
         Alert.alert('Permissão negada', 'É necessário permitir acesso à galeria.');
         return;
@@ -46,60 +46,30 @@ export default function EditarPerfil() {
   };
 
   const handleSalvar = async () => {
-    if (!currentUser) {
-      Alert.alert('Erro', 'Usuário não encontrado.');
-      return;
-    }
+    if (!currentUser) return;
 
-    console.log('Iniciando salvamento...');
-    console.log('Current user UID:', currentUser.uid);
-    console.log('Dados a salvar:', { nome, telefone, foto });
-
-    try {
-      const userRef = doc(db, 'users', currentUser.uid);
-      
-      // Verifica se o documento existe
-      const docSnap = await getDoc(userRef);
-      
-      const updates: any = {};
-      if (nome !== currentUser.nome) updates.nome = nome;
-      if (telefone !== currentUser.telefone) updates.telefone = telefone;
-      if (foto !== currentUser.foto) updates.foto = foto;
-
-      console.log('Updates a serem aplicados:', updates);
-
-      if (Object.keys(updates).length > 0) {
-        if (!docSnap.exists()) {
-          // Se o documento não existe, cria um novo com todos os dados
-          console.log('Documento não existe, criando novo...');
-          await setDoc(userRef, {
-            uid: currentUser.uid,
-            email: currentUser.email,
-            nome: nome,
-            telefone: telefone,
-            foto: foto,
-          });
-        } else {
-          // Se existe, apenas atualiza
-          console.log('Atualizando documento existente...');
-          await updateDoc(userRef, updates);
-        }
-        
-        console.log('Documento salvo com sucesso');
-        
-        setCurrentUser({ ...currentUser, ...updates });
-        Alert.alert('Sucesso', 'Perfil atualizado!');
-        setEditando(false);
-      } else {
-        Alert.alert('Nenhuma alteração', 'Nenhum campo foi modificado.');
-        setEditando(false);
+    let fotoUrl = foto;
+    // Se a foto foi alterada e é local, faz upload e pega a URL pública
+    if (foto && foto.startsWith('file://')) {
+      try {
+        fotoUrl = await uploadImageToSupabase(foto, `perfil/${currentUser.uid}.jpg`);
+      } catch (e: any) {
+        Alert.alert('Erro', 'Não foi possível enviar a imagem de perfil.');
+        return;
       }
-    } catch (error: any) {
-      console.error('Erro detalhado ao salvar:', error);
-      console.error('Código do erro:', error.code);
-      console.error('Mensagem do erro:', error.message);
-      Alert.alert('Erro', `Não foi possível atualizar o perfil: ${error.message}`);
     }
+
+    // Atualize o perfil do usuário no Firestore
+    const updates: any = {};
+    if (nome !== currentUser.nome) updates.nome = nome;
+    if (telefone !== currentUser.telefone) updates.telefone = telefone;
+    if (fotoUrl !== currentUser.foto) updates.foto = fotoUrl;
+
+    await updateDoc(doc(db, 'users', currentUser.uid), updates);
+
+    setCurrentUser({ ...currentUser, ...updates });
+    Alert.alert('Sucesso', 'Perfil atualizado!');
+    setEditando(false);
   };
 
   const handleExcluir = async () => {

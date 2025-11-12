@@ -11,6 +11,7 @@ import Toast from 'react-native-toast-message';
 import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será removido daqui)
 import BottomNav from '../components/BottomNav';
 import { RootStackParamList } from '../types/navigation';
+import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 
 const { width } = Dimensions.get('window');
 
@@ -116,7 +117,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
   const handlePickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.IMAGE,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
@@ -148,6 +149,21 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
     setLoading(true);
     let finalImageUrl = formImageUrl;
+
+    // Se a imagem foi alterada e é uma URI local, faz upload
+    if (formImageUrl && formImageUrl.startsWith('file://')) {
+      try {
+        finalImageUrl = await uploadImageToSupabase(formImageUrl, `anuncios/${anuncioId || Date.now()}.jpg`);
+      } catch (e: any) {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: 'Não foi possível enviar a imagem do anúncio.',
+        });
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       const headers = { 'Authorization': `Bearer ${idToken}` };

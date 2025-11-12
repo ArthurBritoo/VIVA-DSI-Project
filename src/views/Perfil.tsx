@@ -29,6 +29,8 @@ export default function Perfil() {
     navigation.navigate('Login'); // Agora o TypeScript reconhece 'Login' como uma rota válida
   };
 
+  console.log('URL da foto:', currentUser?.foto);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.flexGrow}>
@@ -36,12 +38,13 @@ export default function Perfil() {
 
         <View style={styles.main}>
           <View style={styles.profileSection}>
-            <Image
-              source={{
-                uri: currentUser?.foto || "https://lh3.googleusercontent.com/aida-public/AB6AXuDOepyiX5C3XvREM1UaHTczoSJWAdEOyWp5IZIC19RPpmHR-SI3XGjAMbNo1IcFLhQU_X0Biyhet1Sw7fTb5HOKQfA20ZcSMtjsEyghyUA2iV_DJ_F2xtMm20L25PGawSeC5lggQbbcsCxflfuD2ugEhzV_DJ_F2xtMm20L25PGawSeC5lggQbbcsCxflfuD2ugEhzVqWyptplUyNJe0Z_aV7K8cMTTlfdM41RBhEq_XjqAngqcrsqJo2_HChWebXdufk-0ADvKxZqrnts_XLT7KGUE7jl0mg4ZahFDHE4dh8Y65cfY-B_3Awg",
-              }}
-              style={styles.avatar}
-            />
+            {currentUser?.foto ? (
+              <Image source={{ uri: currentUser.foto }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: '#fff', fontSize: 40 }}>?</Text>
+              </View>
+            )}
             <Text style={styles.nameText}>{currentUser ? currentUser.nome : 'Usuário'}</Text>
             <TouchableOpacity
               style={styles.editProfileButton}
