@@ -99,6 +99,11 @@ export default function EditarPerfil() {
     );
   };
 
+    const handleVoltar = () => {
+      // Retorna para a tela Perfil (garante que o usuário não fique preso)
+      navigation.navigate('Perfil');
+    };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Meu Perfil</Text>
@@ -163,6 +168,10 @@ export default function EditarPerfil() {
       <TouchableOpacity style={styles.deleteButton} onPress={handleExcluir}>
         <Text style={styles.deleteButtonText}>Excluir Conta</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity style={styles.backButton} onPress={handleVoltar}>
+        <Text style={styles.backButtonText}>Voltar</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -200,4 +209,6 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#fff', textAlign: 'center', fontWeight: 'bold' },
   deleteButton: { backgroundColor: '#ff4444', padding: 16, borderRadius: 8 },
   deleteButtonText: { color: '#fff', textAlign: 'center', fontWeight: 'bold' },
+  backButton: { backgroundColor: '#6c757d', padding: 14, borderRadius: 8, marginTop: 12 },
+  backButtonText: { color: '#fff', textAlign: 'center', fontWeight: '600' },
 });
