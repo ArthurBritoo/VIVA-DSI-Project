@@ -37,7 +37,8 @@ Desktop.ini
 .env.*
 
 # Firebase/Google credentials
-ServiceAccountKey.json
+backend/ServiceAccountKey.json
+/ServiceAccountKey.json
 
 # Build outputs
 build/
