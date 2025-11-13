@@ -1,1 +1,65 @@
-backend/serviceAccountKey.json
+# Node modules
+node_modules/
+
+# Expo/React Native
+.expo/
+.expo-shared/
+*.expo
+*.expo.*
+*.log
+
+# Metro bundler cache
+metro-cache/
+# Babel cache
+babel-cache/
+# Yarn
+yarn.lock
+
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# VS Code
+.vscode/
+.history/
+
+# Environment variables
+.env
+.env.*
+
+# Firebase/Google credentials
+backend/ServiceAccountKey.json
+/ServiceAccountKey.json
+
+# Build outputs
+build/
+dist/
+web-build/
+android/
+ios/
+
+# Coverage
+coverage/
+
+# Misc
+*.swp
+*.swo
+
+# IDEs
+.idea/
+*.iml
+
+# Test snapshots
+__snapshots__/
+
+# Expo assets
+assets/*.db

@@ -82,15 +82,26 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://55f50e34bd5f.ngrok-free.app/anuncios", {
+      const url = "https://55f50e34bd5f.ngrok-free.app/anuncios";
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
       });
 
-      console.log("Status da resposta da API:", response.status);
-      const data = await response.json();
-      console.log("Dados recebidos da API:", data);
+      const contentType = response.headers.get('content-type') || '';
+      console.log("Status da resposta da API:", response.status, "Content-Type:", contentType);
+
+      // Leia como texto primeiro para evitar erro de parse quando o servidor retornar HTML
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+        console.log("Dados recebidos da API:", data);
+      } catch (parseError) {
+        console.error('Resposta não-JSON recebida do servidor (texto):', text);
+        throw new Error(`Resposta inválida do servidor: status ${response.status}`);
+      }
 
       let anunciosToProcess: any[] = [];
 
