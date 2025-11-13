@@ -16,7 +16,7 @@ import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://55f50e34bd5f.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -116,8 +116,14 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
 
   const handlePickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Permissão negada', 'É necessário permitir acesso à galeria.');
+      return;
+    }
+
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.IMAGE,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
