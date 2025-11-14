@@ -13,7 +13,7 @@ import BottomNav from '../components/BottomNav';
 import { RootStackParamList } from '../types/navigation';
 import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 import MapView, { Marker } from 'react-native-maps';
-import { Anuncio } from '../../backend/src/controllers/AnuncioController'; // ajuste o caminho
+import { Anuncio } from '../models/Anuncio';
 import FavoriteButton from '../components/FavoriteButton';
 import { useFavorites } from '../contexts/FavoritesContext';
 
@@ -30,12 +30,20 @@ interface AnuncioDetailProps {
   navigation: AnuncioDetailScreenNavigationProp;
 }
 
+interface Anunciante {
+  uid: string;
+  nome: string;
+  foto: string;
+  telefone: string;
+}
+
 
 // A função uploadImageToStorage será removida
 
 export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps) {
   const { anuncioId } = route.params || {};
   const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
+  const [anunciante, setAnunciante] = useState<Anunciante | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -52,7 +60,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formBairro, setFormBairro] = useState('');
   const [formCep, setFormCep] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const { isFavorite, addFavorite, removeFavorite } = useFavorites();
+  const { isFavorite, addFavorite, removeFavorite, updateFavorite } = useFavorites();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -74,63 +82,69 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   }, []);
 
   useEffect(() => {
-    const loadAnuncio = async () => {
-      if (!currentUser && anuncioId) {
-        setLoading(true);
-        return; 
-      }
-
-      if (anuncioId) {
-        setLoading(true);
-        try {
-          const response = await axios.get<Anuncio>(`${BASE_URL}/anuncios/${anuncioId}`);
-          const fetchedAnuncio = response.data;
-          setAnuncio(fetchedAnuncio);
-          setFormTitulo(fetchedAnuncio.titulo);
-          setFormDescricao(fetchedAnuncio.descricao);
-          setFormPreco(fetchedAnuncio.preco?.toString() || '');
-          setFormImageUrl(fetchedAnuncio.imageUrl);
-
-          // ADICIONE ISSO:
-          setFormEndereco(fetchedAnuncio.endereco?.logradouro || '');
-          setFormNumero(fetchedAnuncio.endereco?.numero || '');
-          setFormCidade(fetchedAnuncio.endereco?.cidade || '');
-          setFormEstado(fetchedAnuncio.endereco?.estado || '');
-          setFormBairro(fetchedAnuncio.endereco?.bairro || '');
-          setFormCep(fetchedAnuncio.endereco?.cep || '');
-
-          // Se já tem latitude/longitude, já preenche o mapa
-          if (fetchedAnuncio.endereco?.latitude && fetchedAnuncio.endereco?.longitude) {
-            setCoords({
-              latitude: Number(fetchedAnuncio.endereco.latitude),
-              longitude: Number(fetchedAnuncio.endereco.longitude),
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching anuncio:", error);
-          Toast.show({
-            type: 'error',
-            text1: 'Erro',
-            text2: 'Não foi possível carregar o anúncio.',
-          });
-          setAnuncio(null);
-        } finally {
-          setLoading(false);
-        }
-      } else if (currentUser) {
+    const loadData = async () => {
+      if (!anuncioId) {
         setIsEditing(true);
         setLoading(false);
-        setFormTitulo('');
-        setFormDescricao('');
-        setFormPreco('');
-        setFormImageUrl(null);
-      } else {
+        return;
+      }
+
+      if (!idToken) {
+        setLoading(true);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Fetch Anuncio
+        const anuncioResponse = await axios.get<Anuncio>(`${BASE_URL}/anuncios/${anuncioId}`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        const fetchedAnuncio = anuncioResponse.data;
+        setAnuncio(fetchedAnuncio);
+
+        // Pre-fill forms
+        setFormTitulo(fetchedAnuncio.titulo);
+        setFormDescricao(fetchedAnuncio.descricao);
+        setFormPreco(fetchedAnuncio.preco?.toString() || '');
+        setFormImageUrl(fetchedAnuncio.imageUrl);
+        setFormEndereco(fetchedAnuncio.endereco?.logradouro || '');
+        setFormNumero(fetchedAnuncio.endereco?.numero || '');
+        setFormCidade(fetchedAnuncio.endereco?.cidade || '');
+        setFormEstado(fetchedAnuncio.endereco?.estado || '');
+        setFormBairro(fetchedAnuncio.endereco?.bairro || '');
+        setFormCep(fetchedAnuncio.endereco?.cep || '');
+
+        if (fetchedAnuncio.endereco?.latitude && fetchedAnuncio.endereco?.longitude) {
+          setCoords({
+            latitude: Number(fetchedAnuncio.endereco.latitude),
+            longitude: Number(fetchedAnuncio.endereco.longitude),
+          });
+        }
+
+        // Fetch Anunciante
+        if (fetchedAnuncio.userId) {
+          const userResponse = await axios.get<Anunciante>(`${BASE_URL}/users/${fetchedAnuncio.userId}`, {
+            headers: { Authorization: `Bearer ${idToken}` },
+          });
+          setAnunciante(userResponse.data);
+        }
+
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: 'Não foi possível carregar os dados.',
+        });
+        setAnuncio(null);
+      } finally {
         setLoading(false);
       }
     };
 
-    loadAnuncio();
-  }, [anuncioId, currentUser]);
+    loadData();
+  }, [anuncioId, idToken]);
 
   const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
 
@@ -249,6 +263,9 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           { headers }
         );
         setAnuncio(response.data);
+        if (isFavorite(response.data.id!)) {
+          updateFavorite(response.data);
+        }
         // Update form fields with the new data after successful save
         setFormTitulo(response.data.titulo);
         setFormDescricao(response.data.descricao);
@@ -535,8 +552,29 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
             )}
           </View>
 
+          {anunciante && !isEditing && (
+            <View style={styles.anuncianteCard}>
+              <Text style={styles.sectionTitle}>Anunciante</Text>
+              <View style={styles.anuncianteInfo}>
+                <Image source={{ uri: anunciante.foto || 'https://via.placeholder.com/150' }} style={styles.anuncianteAvatar} />
+                <View style={styles.anuncianteTextContainer}>
+                  <Text style={styles.anuncianteName}>{anunciante.nome}</Text>
+                  <Text style={styles.anuncianteContato}>{anunciante.telefone}</Text>
+                </View>
+                <TouchableOpacity style={styles.contactButton}>
+                  <Text style={styles.contactButtonText}>Contactar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           <View style={styles.locationCard}>
             <Text style={styles.locationTitle}>Localização</Text>
+            {!isEditing && anuncio?.endereco && (
+              <Text style={styles.addressText}>
+                {`${anuncio.endereco.logradouro}, ${anuncio.endereco.numero} - ${anuncio.endereco.bairro}, ${anuncio.endereco.cidade} - ${anuncio.endereco.estado}, ${anuncio.endereco.cep}`}
+              </Text>
+            )}
             <View style={styles.mapContainer}>
               {coords ? (
                 <MapView
@@ -755,6 +793,49 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16, 
     color: "#374151", 
+  },
+  anuncianteCard: {
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  anuncianteInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  anuncianteAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  anuncianteTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  anuncianteName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  anuncianteContato: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  contactButton: {
+    backgroundColor: '#137fec',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   locationCard: {
     marginTop: 16,
