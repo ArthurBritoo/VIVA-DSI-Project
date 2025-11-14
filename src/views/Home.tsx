@@ -31,16 +31,16 @@ const savedProperties = [
   {
     id: "1",
     featured: true,
-    title: "Luxury Apartment with City Views",
-    details: "2 beds · 2 baths · 1,200 sq ft",
+    title: "Apartmento de Luxo com Vista para a Cidade",
+    details: "3 quartos · 1 suíte · 2 banheiros · 165m²",
     image:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAC2N2JwiUvCl_ti9LPXZWLUqcX9jW-emlV40cIctx75XHefGGD8KiA9chy5rGIzdC0uX_2kKh845TCf2w0Kq4YpTO_MU_PUpmKPRjVN165sEq9DhTZ9O4uRKa9Fd_g_oOChiYHiR4dUB8TPrQm8dEYFf0u6btlexobLoOC2pbT_-5Ct8APPTj0MVa09xfc5ulWsGnZh4Z0FBMn1toE7xf601DXLKqoll9tmFMf_EJ--G5KxpHdfjQo4uAkSLwQ1c0caNXdofq21xs",
   },
   {
     id: "2",
     featured: false,
-    title: "Charming Townhouse in Historic District",
-    details: "3 beds · 2.5 baths · 1,800 sq ft",
+    title: "Casa Aconchegante em Bairro Tranquilo",
+    details: "3 quartos · 2 banheiros · 102 m²",
     image:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavdOWvUUG9sl5cpQnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
   },
