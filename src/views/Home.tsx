@@ -16,16 +16,14 @@ import { auth } from "../assets/firebaseConfig";
 import BottomNav from "../components/BottomNav";
 import Header from "../components/Header";
 import { RootStackParamList } from "../types/navigation";
+import { useFavorites } from '../contexts/FavoritesContext';
+import FavoriteButton from '../components/FavoriteButton';
+
+
+import { Anuncio } from '../models/Anuncio';
 
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
-
-interface Anuncio {
-  id: string;
-  titulo: string;
-  price: string;
-  imageUrl: string;
-}
 
 const savedProperties = [
   {
@@ -51,6 +49,7 @@ export default function App() {
   const [recentlyViewed, setRecentlyViewed] = useState<Anuncio[]>([]);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  const { favorites, isFavorite } = useFavorites();
 
   // 🔹 Atualiza token de autenticação quando o usuário muda
   useEffect(() => {
@@ -82,7 +81,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://privative-unphysiological-lamonica.ngrok-free.dev/anuncios", {
+      const response = await fetch("https://contrite-graspingly-ligia.ngrok-free.dev/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
@@ -107,8 +106,10 @@ export default function App() {
       const anunciosList: Anuncio[] = anunciosToProcess.map((anuncio: any) => ({
         id: anuncio.id,
         titulo: anuncio.titulo,
-        price: anuncio.preco,
+        preco: anuncio.preco || 0,
         imageUrl: anuncio.imageUrl,
+        descricao: anuncio.descricao || '',
+        userId: anuncio.userId || '',
       }));
 
       setRecentlyViewed(anunciosList);
@@ -187,14 +188,15 @@ export default function App() {
             data={recentlyViewed}
             horizontal
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id!}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
+                <FavoriteButton anuncio={item} style={styles.favoriteIcon} />
                 <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {item.titulo}
                 </Text>
-                <Text style={styles.cardPrice}>{item.price}</Text>
+                <Text style={styles.cardPrice}>R$ {item.preco.toLocaleString('pt-BR')}</Text>
               </TouchableOpacity>
             )}
           />
@@ -203,18 +205,25 @@ export default function App() {
         {/* Saved Properties */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Favoritos</Text>
-          {savedProperties.map((item) => (
-            <View key={item.id} style={styles.savedCard}>
-              <View style={{ flex: 1 }}>
-                {item.featured && (
-                  <Text style={styles.featuredText}>Featured</Text>
-                )}
-                <Text style={styles.savedTitle}>{item.title}</Text>
-                <Text style={styles.savedDetails}>{item.details}</Text>
-              </View>
-              <Image source={{ uri: item.image }} style={styles.savedImage} />
-            </View>
-          ))}
+          {favorites.length > 0 ? (
+            <FlatList
+              data={favorites}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id!}
+              renderItem={({ item }) => (
+                <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
+                  <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.titulo}
+                  </Text>
+                  <Text style={styles.cardPrice}>R$ {item.preco.toLocaleString('pt-BR')}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          ) : (
+            <Text style={styles.emptyText}>Você ainda não tem favoritos.</Text>
+          )}
         </View>
       </ScrollView>
 
@@ -285,6 +294,19 @@ const styles = StyleSheet.create({
   cardImage: { width: "100%", height: 180, borderRadius: 12, marginBottom: 8 },
   cardTitle: { fontSize: 14, fontWeight: "bold" },
   cardPrice: { fontSize: 12, color: "#6b7280" },
+  favoriteIcon: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 16,
+  },
+  emptyText: {
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 10,
+  },
   savedCard: {
     flexDirection: "row",
     backgroundColor: "#fff",
