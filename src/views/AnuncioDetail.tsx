@@ -12,6 +12,8 @@ import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será
 import BottomNav from '../components/BottomNav';
 import { RootStackParamList } from '../types/navigation';
 import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
+import MapView, { Marker } from 'react-native-maps';
+import { Anuncio } from '../../backend/src/controllers/AnuncioController'; // ajuste o caminho
 
 const { width } = Dimensions.get('window');
 
@@ -26,15 +28,6 @@ interface AnuncioDetailProps {
   navigation: AnuncioDetailScreenNavigationProp;
 }
 
-interface Anuncio {
-  id?: string; // ID é opcional para novos anúncios
-  titulo: string;
-  descricao: string;
-  preco: number; // Alterado para number para corresponder ao backend
-  imageUrl: string;
-  userId: string;
-  createdAt?: Date; // Opcional, será gerado no backend
-}
 
 // A função uploadImageToStorage será removida
 
@@ -50,6 +43,13 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formDescricao, setFormDescricao] = useState('');
   const [formPreco, setFormPreco] = useState('');
   const [formImageUrl, setFormImageUrl] = useState<string | null>(null);
+  const [formEndereco, setFormEndereco] = useState('');
+  const [formNumero, setFormNumero] = useState('');
+  const [formCidade, setFormCidade] = useState('');
+  const [formEstado, setFormEstado] = useState('');
+  const [formBairro, setFormBairro] = useState('');
+  const [formCep, setFormCep] = useState('');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -85,8 +85,24 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setAnuncio(fetchedAnuncio);
           setFormTitulo(fetchedAnuncio.titulo);
           setFormDescricao(fetchedAnuncio.descricao);
-          setFormPreco(fetchedAnuncio.preco?.toString() || ''); // Safely convert preco to string
+          setFormPreco(fetchedAnuncio.preco?.toString() || '');
           setFormImageUrl(fetchedAnuncio.imageUrl);
+
+          // ADICIONE ISSO:
+          setFormEndereco(fetchedAnuncio.endereco?.logradouro || '');
+          setFormNumero(fetchedAnuncio.endereco?.numero || '');
+          setFormCidade(fetchedAnuncio.endereco?.cidade || '');
+          setFormEstado(fetchedAnuncio.endereco?.estado || '');
+          setFormBairro(fetchedAnuncio.endereco?.bairro || '');
+          setFormCep(fetchedAnuncio.endereco?.cep || '');
+
+          // Se já tem latitude/longitude, já preenche o mapa
+          if (fetchedAnuncio.endereco?.latitude && fetchedAnuncio.endereco?.longitude) {
+            setCoords({
+              latitude: Number(fetchedAnuncio.endereco.latitude),
+              longitude: Number(fetchedAnuncio.endereco.longitude),
+            });
+          }
         } catch (error) {
           console.error("Error fetching anuncio:", error);
           Toast.show({
@@ -134,6 +150,25 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     }
   };
 
+  // Função utilitária para geocodificar endereço usando Nominatim
+  async function geocodeAddressNominatim(enderecoCompleto: string) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(enderecoCompleto)}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'SeuApp/1.0 (seuemail@dominio.com)',
+      },
+    });
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return {
+        latitude: parseFloat(data[0].lat),
+        longitude: parseFloat(data[0].lon),
+      };
+    } else {
+      throw new Error('Endereço não encontrado');
+    }
+  }
+
   const handleSave = async () => {
     if (!formTitulo || !formDescricao || !formPreco) {
       Toast.show({
@@ -178,13 +213,31 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         finalImageUrl = "https://via.placeholder.com/400x300?text=Sem+Imagem";
       }
 
-      const anuncioDataToSave: Omit<Anuncio, 'id' | 'createdAt'> = {
+      // Monte o endereço completo para geocodificação
+      const enderecoCompleto = `${formEndereco}, ${formNumero}, ${formBairro}, ${formCidade}, ${formEstado}, ${formCep}`;
+      // Geocodifique o endereço
+      const coords = await geocodeAddressNominatim(enderecoCompleto);
+
+      // Monte o objeto do anúncio com latitude e longitude preenchidos
+      const anuncioDataToSave = {
         titulo: formTitulo,
         descricao: formDescricao,
         preco: parseFloat(formPreco),
         imageUrl: finalImageUrl || '',
-        userId: currentUser.uid, 
+        userId: currentUser.uid,
+        endereco: {
+          logradouro: formEndereco,
+          numero: formNumero,
+          bairro: formBairro,
+          cidade: formCidade,
+          estado: formEstado,
+          cep: formCep,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        },
       };
+
+      console.log('Enviando anúncio:', anuncioDataToSave);
 
       if (anuncioId) {
         const response = await axios.put<Anuncio>(
@@ -211,10 +264,10 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         }, 1000); // 1 segundo de atraso
 
       } else {
-        const response = await axios.post<Anuncio>(
+        const response = await axios.post(
           `${BASE_URL}/anuncios`,
-          { anuncioData: anuncioDataToSave, userId: currentUser.uid },
-          { headers }
+          { anuncioData: anuncioDataToSave }, // CERTO!
+          { headers: { Authorization: `Bearer ${idToken}` } }
         );
         setAnuncio(response.data);
         // Update form fields with the new data after successful save for new ad
@@ -298,6 +351,21 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       navigation.goBack();
     }
   };
+
+  useEffect(() => {
+    async function fetchCoords() {
+      if (formEndereco && formNumero && formCidade && formEstado) {
+        try {
+          const enderecoCompleto = `${formEndereco}, ${formNumero}, ${formCidade}, ${formEstado}`;
+          const geo = await geocodeAddressNominatim(enderecoCompleto);
+          setCoords(geo);
+        } catch (e) {
+          setCoords(null);
+        }
+      }
+    }
+    if (isEditing) fetchCoords();
+  }, [formEndereco, formNumero, formCidade, formEstado, isEditing]);
 
   if (loading) {
     return (
@@ -419,6 +487,44 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                   multiline
                   numberOfLines={4}
                 />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Endereço"
+                  value={formEndereco}
+                  onChangeText={setFormEndereco}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Número"
+                  value={formNumero}
+                  onChangeText={setFormNumero}
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Cidade"
+                  value={formCidade}
+                  onChangeText={setFormCidade}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Estado"
+                  value={formEstado}
+                  onChangeText={setFormEstado}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Bairro"
+                  value={formBairro}
+                  onChangeText={setFormBairro}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="CEP"
+                  value={formCep}
+                  onChangeText={setFormCep}
+                  keyboardType="numeric"
+                />
               </>
             ) : (
               <>
@@ -431,7 +537,21 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           <View style={styles.locationCard}>
             <Text style={styles.locationTitle}>Localização</Text>
             <View style={styles.mapContainer}>
-              <Image source={{ uri: "https://via.placeholder.com/400x300?text=Mapa" }} style={styles.mapImage} />
+              {coords ? (
+                <MapView
+                  style={styles.mapImage}
+                  initialRegion={{
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                >
+                  <Marker coordinate={coords} />
+                </MapView>
+              ) : (
+                <Text>Mapa não disponível</Text>
+              )}
             </View>
           </View>
         </View>
