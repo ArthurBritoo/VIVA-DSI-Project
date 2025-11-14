@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserContext } from '../contexts/UserContext';
 import Header  from "../components/Header";
@@ -25,7 +25,13 @@ export default function Perfil() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const { currentUser, setCurrentUser } = useUserContext();
-  const { favorites, removeFavorite, loading } = useFavorites();
+  const { favorites, removeFavorite, loading, reloadFavorites } = useFavorites();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      reloadFavorites();
+    }, [])
+  );
 
   const handleLogout = () => {
     setCurrentUser(null);

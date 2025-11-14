@@ -6,8 +6,10 @@ interface FavoritesContextType {
   favorites: Anuncio[];
   addFavorite: (anuncio: Anuncio) => Promise<void>;
   removeFavorite: (anuncioId: string) => Promise<void>;
+  updateFavorite: (anuncio: Anuncio) => Promise<void>;
   isFavorite: (anuncioId: string) => boolean;
   loading: boolean;
+  reloadFavorites: () => Promise<void>;
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
@@ -18,20 +20,21 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [favorites, setFavorites] = useState<Anuncio[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadFavorites = async () => {
-      try {
-        const storedFavorites = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
-        if (storedFavorites) {
-          setFavorites(JSON.parse(storedFavorites));
-        }
-      } catch (error) {
-        console.error("Failed to load favorites from storage", error);
-      } finally {
-        setLoading(false);
+  const loadFavorites = async () => {
+    setLoading(true);
+    try {
+      const storedFavorites = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (storedFavorites) {
+        setFavorites(JSON.parse(storedFavorites));
       }
-    };
+    } catch (error) {
+      console.error("Failed to load favorites from storage", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadFavorites();
   }, []);
 
@@ -54,12 +57,18 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
     await saveFavorites(newFavorites);
   };
 
+  const updateFavorite = async (anuncio: Anuncio) => {
+    if (!anuncio.id) return;
+    const newFavorites = favorites.map(fav => (fav.id === anuncio.id ? anuncio : fav));
+    await saveFavorites(newFavorites);
+  };
+
   const isFavorite = (anuncioId: string) => {
     return favorites.some(fav => fav.id === anuncioId);
   };
 
   return (
-    <FavoritesContext.Provider value={{ favorites, addFavorite, removeFavorite, isFavorite, loading }}>
+    <FavoritesContext.Provider value={{ favorites, addFavorite, removeFavorite, updateFavorite, isFavorite, loading, reloadFavorites: loadFavorites }}>
       {children}
     </FavoritesContext.Provider>
   );
