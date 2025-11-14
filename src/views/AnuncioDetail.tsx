@@ -14,11 +14,13 @@ import { RootStackParamList } from '../types/navigation';
 import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 import MapView, { Marker } from 'react-native-maps';
 import { Anuncio } from '../../backend/src/controllers/AnuncioController'; // ajuste o caminho
+import FavoriteButton from '../components/FavoriteButton';
+import { useFavorites } from '../contexts/FavoritesContext';
 
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -50,6 +52,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formBairro, setFormBairro] = useState('');
   const [formCep, setFormCep] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const { isFavorite, addFavorite, removeFavorite } = useFavorites();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -427,10 +430,8 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{displayTitle}</Text>
         {anuncio && !isEditing && (
-          <TouchableOpacity style={styles.headerButton}>
-            <MaterialCommunityIcons name="share-variant" size={24} color="#000" />
-          </TouchableOpacity>
-        )} 
+          <FavoriteButton anuncio={anuncio} />
+        )}
         {isEditing && <View style={styles.headerButton} /> }
       </View>
 

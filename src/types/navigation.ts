@@ -7,5 +7,6 @@ export type RootStackParamList = {
     Perfil: undefined;
     RedefinirSenha: undefined;
     AnuncioDetail: { anuncioId?: string }; // Made anuncioId optional
+    EditarPerfil: undefined;
   };
   

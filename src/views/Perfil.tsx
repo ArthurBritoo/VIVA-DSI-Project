@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserContext } from '../contexts/UserContext';
 import Header  from "../components/Header";
 import BottomNav from "../components/BottomNav";
+import { useFavorites } from '../contexts/FavoritesContext';
+import FavoriteCard from '../components/FavoriteCard';
 
 // Defina o tipo RootStackParamList com todas as rotas disponíveis no seu stack
 type RootStackParamList = {
@@ -23,43 +25,75 @@ export default function Perfil() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const { currentUser, setCurrentUser } = useUserContext();
+  const { favorites, removeFavorite, loading } = useFavorites();
 
   const handleLogout = () => {
     setCurrentUser(null);
     navigation.navigate('Login'); // Agora o TypeScript reconhece 'Login' como uma rota válida
   };
 
+  const confirmRemove = (id: string) => {
+    Alert.alert(
+      "Remover Favorito",
+      "Tem certeza que deseja remover este imóvel dos seus favoritos?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        { text: "Sim, remover", onPress: () => removeFavorite(id), style: 'destructive' }
+      ]
+    );
+  };
+
   console.log('URL da foto:', currentUser?.foto);
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.flexGrow}>
-      <Header title="Perfil" onMenuPress={() => {}} />
-
-        <View style={styles.main}>
-          <View style={styles.profileSection}>
-            {currentUser?.foto ? (
-              <Image source={{ uri: currentUser.foto }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, { backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }]}>
-                <Text style={{ color: '#fff', fontSize: 40 }}>?</Text>
+        <Header title="Perfil" onMenuPress={() => {}} />
+        <FlatList
+          ListHeaderComponent={
+            <>
+              <View style={styles.main}>
+                <View style={styles.profileSection}>
+                  {currentUser?.foto ? (
+                    <Image source={{ uri: currentUser.foto }} style={styles.avatar} />
+                  ) : (
+                    <View style={[styles.avatar, { backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Text style={{ color: '#fff', fontSize: 40 }}>?</Text>
+                    </View>
+                  )}
+                  <Text style={styles.nameText}>{currentUser ? currentUser.nome : 'Usuário'}</Text>
+                  <TouchableOpacity
+                    style={styles.editProfileButton}
+                    onPress={() => navigation.navigate('EditarPerfil')}
+                  >
+                    <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                    <Text style={styles.logoutButtonText}>Logout</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            )}
-            <Text style={styles.nameText}>{currentUser ? currentUser.nome : 'Usuário'}</Text>
-            <TouchableOpacity
-              style={styles.editProfileButton}
-              onPress={() => navigation.navigate('EditarPerfil')}
-            >
-              <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      {/* Menu de navegação */}
+              <View style={styles.favoritesSection}>
+                <Text style={styles.sectionTitle}>Meus Favoritos</Text>
+              </View>
+            </>
+          }
+          data={favorites}
+          keyExtractor={(item) => item.id!}
+          renderItem={({ item }) => (
+            <View style={styles.favoriteCardContainer}>
+              <FavoriteCard anuncio={item} onRemove={() => confirmRemove(item.id!)} />
+            </View>
+          )}
+          ListEmptyComponent={
+            !loading ? (
+              <Text style={styles.emptyText}>Você ainda não adicionou imóveis aos seus favoritos.</Text>
+            ) : null
+          }
+          contentContainerStyle={styles.contentContainer}
+        />
       <BottomNav/>
     </SafeAreaView>
   );
@@ -71,6 +105,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7fafc',
   },
   flexGrow: {
+    flexGrow: 1,
+  },
+  contentContainer: {
     flexGrow: 1,
   },
   header: {
@@ -88,7 +125,6 @@ const styles = StyleSheet.create({
   },
   
   main: {
-    flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
@@ -149,6 +185,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#4b5563',
+  },
+  favoritesSection: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    paddingTop: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  favoriteCardContainer: {
+    paddingHorizontal: 16,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#6b7280',
+    fontSize: 16,
+    paddingHorizontal: 16,
   },
   navbar: {
     flexDirection: 'row',

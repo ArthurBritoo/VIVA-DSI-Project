@@ -111,8 +111,9 @@ app.post('/anuncios', async (req, res) => {
 // Get all anuncios (requires authentication)
 app.get("/anuncios", authenticate, async (req, res) => {
   try {
-    console.log("RECIVED request to get all anuncios");
-    const anuncios = await getAnuncios(db);
+    const searchQuery = req.query.q as string | undefined;
+    console.log("Received request to get all anuncios with query:", searchQuery);
+    const anuncios = await getAnuncios(db, searchQuery);
     res.status(200).send(anuncios);
   } catch (error) {
     console.error("Error getting anuncios:", error);

@@ -43,14 +43,25 @@ export const createAnuncio = async (db: admin.firestore.Firestore, anuncioData: 
 
 
 // obter todos anuncios
-export const getAnuncios = async (db: admin.firestore.Firestore): Promise<Anuncio[]> => {
+export const getAnuncios = async (db: admin.firestore.Firestore, searchQuery?: string): Promise<Anuncio[]> => {
   try {
     const anunciosCollectionRef = db.collection("anuncio");
-    const querySnapshot = await anunciosCollectionRef.get();
-    return querySnapshot.docs.map(doc => ({
+    const querySnapshot = await anunciosCollectionRef.orderBy("createdAt", "desc").get();
+    
+    let anuncios = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data() as Omit<Anuncio, 'id'>
     }));
+
+    if (searchQuery) {
+      const lowercasedQuery = searchQuery.toLowerCase();
+      anuncios = anuncios.filter(anuncio => 
+        anuncio.titulo.toLowerCase().includes(lowercasedQuery) ||
+        anuncio.descricao.toLowerCase().includes(lowercasedQuery)
+      );
+    }
+
+    return anuncios;
   } catch (error) {
     console.error("Error getting anuncios: ", error);
     throw error;

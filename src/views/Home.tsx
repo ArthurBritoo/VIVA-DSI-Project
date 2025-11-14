@@ -16,31 +16,29 @@ import { auth } from "../assets/firebaseConfig";
 import BottomNav from "../components/BottomNav";
 import Header from "../components/Header";
 import { RootStackParamList } from "../types/navigation";
+import { useFavorites } from '../contexts/FavoritesContext';
+import FavoriteButton from '../components/FavoriteButton';
+
+
+import { Anuncio } from '../models/Anuncio';
 
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
-
-interface Anuncio {
-  id: string;
-  titulo: string;
-  price: string;
-  imageUrl: string;
-}
 
 const savedProperties = [
   {
     id: "1",
     featured: true,
-    title: "Luxury Apartment with City Views",
-    details: "2 beds · 2 baths · 1,200 sq ft",
+    title: "Apartmento de Luxo com Vista para a Cidade",
+    details: "3 quartos · 1 suíte · 2 banheiros · 165m²",
     image:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAC2N2JwiUvCl_ti9LPXZWLUqcX9jW-emlV40cIctx75XHefGGD8KiA9chy5rGIzdC0uX_2kKh845TCf2w0Kq4YpTO_MU_PUpmKPRjVN165sEq9DhTZ9O4uRKa9Fd_g_oOChiYHiR4dUB8TPrQm8dEYFf0u6btlexobLoOC2pbT_-5Ct8APPTj0MVa09xfc5ulWsGnZh4Z0FBMn1toE7xf601DXLKqoll9tmFMf_EJ--G5KxpHdfjQo4uAkSLwQ1c0caNXdofq21xs",
   },
   {
     id: "2",
     featured: false,
-    title: "Charming Townhouse in Historic District",
-    details: "3 beds · 2.5 baths · 1,800 sq ft",
+    title: "Casa Aconchegante em Bairro Tranquilo",
+    details: "3 quartos · 2 banheiros · 102 m²",
     image:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavdOWvUUG9sl5cpQnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
   },
@@ -51,6 +49,7 @@ export default function App() {
   const [recentlyViewed, setRecentlyViewed] = useState<Anuncio[]>([]);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  const { favorites, isFavorite } = useFavorites();
 
   // 🔹 Atualiza token de autenticação quando o usuário muda
   useEffect(() => {
@@ -82,7 +81,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://privative-unphysiological-lamonica.ngrok-free.dev/anuncios", {
+      const response = await fetch("https://contrite-graspingly-ligia.ngrok-free.dev/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
@@ -107,8 +106,10 @@ export default function App() {
       const anunciosList: Anuncio[] = anunciosToProcess.map((anuncio: any) => ({
         id: anuncio.id,
         titulo: anuncio.titulo,
-        price: anuncio.preco,
+        preco: anuncio.preco || 0,
         imageUrl: anuncio.imageUrl,
+        descricao: anuncio.descricao || '',
+        userId: anuncio.userId || '',
       }));
 
       setRecentlyViewed(anunciosList);
@@ -187,14 +188,15 @@ export default function App() {
             data={recentlyViewed}
             horizontal
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id!}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
+                <FavoriteButton anuncio={item} style={styles.favoriteIcon} />
                 <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {item.titulo}
                 </Text>
-                <Text style={styles.cardPrice}>{item.price}</Text>
+                <Text style={styles.cardPrice}>R$ {item.preco.toLocaleString('pt-BR')}</Text>
               </TouchableOpacity>
             )}
           />
@@ -203,18 +205,25 @@ export default function App() {
         {/* Saved Properties */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Favoritos</Text>
-          {savedProperties.map((item) => (
-            <View key={item.id} style={styles.savedCard}>
-              <View style={{ flex: 1 }}>
-                {item.featured && (
-                  <Text style={styles.featuredText}>Featured</Text>
-                )}
-                <Text style={styles.savedTitle}>{item.title}</Text>
-                <Text style={styles.savedDetails}>{item.details}</Text>
-              </View>
-              <Image source={{ uri: item.image }} style={styles.savedImage} />
-            </View>
-          ))}
+          {favorites.length > 0 ? (
+            <FlatList
+              data={favorites}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id!}
+              renderItem={({ item }) => (
+                <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
+                  <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.titulo}
+                  </Text>
+                  <Text style={styles.cardPrice}>R$ {item.preco.toLocaleString('pt-BR')}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          ) : (
+            <Text style={styles.emptyText}>Você ainda não tem favoritos.</Text>
+          )}
         </View>
       </ScrollView>
 
@@ -285,6 +294,19 @@ const styles = StyleSheet.create({
   cardImage: { width: "100%", height: 180, borderRadius: 12, marginBottom: 8 },
   cardTitle: { fontSize: 14, fontWeight: "bold" },
   cardPrice: { fontSize: 12, color: "#6b7280" },
+  favoriteIcon: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 16,
+  },
+  emptyText: {
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 10,
+  },
   savedCard: {
     flexDirection: "row",
     backgroundColor: "#fff",
