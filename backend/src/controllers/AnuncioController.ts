@@ -1,5 +1,16 @@
 import * as admin from "firebase-admin";
 
+export interface Endereco {
+  logradouro: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  cep: string;
+  latitude: number | string;
+  longitude: number | string;
+}
+
 export interface Anuncio {
   id?: string;
   titulo: string;
@@ -7,7 +18,8 @@ export interface Anuncio {
   preco: number;
   imageUrl: string;
   userId: string;
-  createdAt: Date;
+  createdAt?: Date;
+  endereco: Endereco; // <-- Adicione esta linha
 }
 
 // Functions now accept 'db' as an argument

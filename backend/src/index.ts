@@ -86,6 +86,7 @@ const authenticate = async (req: AuthenticatedRequest, res: Response, next: Next
 app.post("/anuncios", authenticate, async (req: AuthenticatedRequest, res: Response) => {
   console.log("Rota /anuncios chamada!");
   console.log("Usuário autenticado:", req.user?.uid);
+  console.log('Recebido no backend:', req.body);
   try {
     const { anuncioData } = req.body;
     const userId = req.user?.uid; // Get userId from authenticated user
@@ -99,6 +100,12 @@ app.post("/anuncios", authenticate, async (req: AuthenticatedRequest, res: Respo
     console.error("Error creating anuncio:", error);
     res.status(500).send({ message: "Error creating anuncio", error: error instanceof Error ? error.message : String(error) });
   }
+});
+
+// Create a new anuncio (without authentication)
+app.post('/anuncios', async (req, res) => {
+  console.log('Recebido no backend:', req.body);
+  // ...restante do código
 });
 
 // Get all anuncios (requires authentication)
