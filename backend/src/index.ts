@@ -14,6 +14,12 @@ console.log("Full serviceAccount object before Admin SDK initialization:", servi
 // *** ADDED LOG END ***
 
 import { createAnuncio, deleteAnuncio, getAnuncioById, getAnuncios, getAnunciosByUserId, updateAnuncio } from "./controllers/AnuncioController";
+import { 
+  getUserFavorites, 
+  addFavorite, 
+  removeFavorite, 
+  setFavoritesOrder 
+} from "./controllers/FavoriteController";
 import { fetchUserData } from "./controllers/UserController";
 
 const app = express();
@@ -183,6 +189,98 @@ app.get("/anuncios/user/:userId", authenticate, async (req: AuthenticatedRequest
 });
 
 // RESTful API for User (requires authentication for fetching user data)
+
+// ==================== FAVORITOS ====================
+
+// GET /favorites - Buscar todos os favoritos do usuário autenticado
+app.get("/favorites", authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.uid;
+    if (!userId) {
+      return res.status(400).send({ message: "Missing userId from authenticated token" });
+    }
+
+    const favorites = await getUserFavorites(db, userId);
+    res.status(200).send(favorites);
+  } catch (error) {
+    console.error("Error getting favorites:", error);
+    res.status(500).send({ 
+      message: "Error getting favorites", 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+  }
+});
+
+// POST /favorites - Adicionar um favorito
+app.post("/favorites", authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.uid;
+    const { anuncioId } = req.body;
+
+    if (!userId) {
+      return res.status(400).send({ message: "Missing userId from authenticated token" });
+    }
+
+    if (!anuncioId) {
+      return res.status(400).send({ message: "Missing anuncioId in request body" });
+    }
+
+    await addFavorite(db, userId, anuncioId);
+    res.status(200).send({ message: "Favorite added successfully" });
+  } catch (error) {
+    console.error("Error adding favorite:", error);
+    res.status(500).send({ 
+      message: "Error adding favorite", 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+  }
+});
+
+// DELETE /favorites/:anuncioId - Remover um favorito
+app.delete("/favorites/:anuncioId", authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.uid;
+    const { anuncioId } = req.params;
+
+    if (!userId) {
+      return res.status(400).send({ message: "Missing userId from authenticated token" });
+    }
+
+    await removeFavorite(db, userId, anuncioId);
+    res.status(200).send({ message: "Favorite removed successfully" });
+  } catch (error) {
+    console.error("Error removing favorite:", error);
+    res.status(500).send({ 
+      message: "Error removing favorite", 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+  }
+});
+
+// PATCH /favorites/order - Atualizar ordem dos favoritos
+app.patch("/favorites/order", authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.uid;
+    const { anuncioIds } = req.body;
+
+    if (!userId) {
+      return res.status(400).send({ message: "Missing userId from authenticated token" });
+    }
+
+    if (!anuncioIds || !Array.isArray(anuncioIds)) {
+      return res.status(400).send({ message: "Missing or invalid anuncioIds array in request body" });
+    }
+
+    await setFavoritesOrder(db, userId, anuncioIds);
+    res.status(200).send({ message: "Favorites order updated successfully" });
+  } catch (error) {
+    console.error("Error updating favorites order:", error);
+    res.status(500).send({ 
+      message: "Error updating favorites order", 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+  }
+});
 
 // Get user data by UID (requires authentication)
 app.get("/users/:uid", authenticate, async (req: AuthenticatedRequest, res: Response) => {

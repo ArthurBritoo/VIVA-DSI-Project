@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useUserContext } from '../contexts/UserContext';
-import Header  from "../components/Header";
+import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
+import { useFavorites } from '../contexts/FavoritesContext';
+import FavoriteCard from '../components/FavoriteCard';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Anuncio } from '../models/Anuncio';
 
-// Defina o tipo RootStackParamList com todas as rotas disponíveis no seu stack
 type RootStackParamList = {
   Login: undefined;
   Cadastro: undefined;
@@ -19,48 +22,160 @@ type RootStackParamList = {
 };
 
 export default function Perfil() {
-  // Tipando o useNavigation com NativeStackNavigationProp
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
   const { currentUser, setCurrentUser } = useUserContext();
+  const { favorites, removeFavorite, setFavoritesOrder, loading, reloadFavorites } = useFavorites();
+  const [isReordering, setIsReordering] = useState(false);
+  const [localFavorites, setLocalFavorites] = useState<Anuncio[]>([]);
+
+  useEffect(() => {
+    setLocalFavorites(favorites);
+  }, [favorites]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      reloadFavorites();
+    }, [])
+  );
 
   const handleLogout = () => {
     setCurrentUser(null);
-    navigation.navigate('Login'); // Agora o TypeScript reconhece 'Login' como uma rota válida
+    navigation.navigate('Login');
   };
 
-  console.log('URL da foto:', currentUser?.foto);
+  const confirmRemove = (id: string) => {
+    Alert.alert(
+      "Remover Favorito",
+      "Tem certeza que deseja remover este imóvel dos seus favoritos?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sim, remover", onPress: () => removeFavorite(id), style: 'destructive' }
+      ]
+    );
+  };
+
+  const moveItem = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= localFavorites.length) return;
+
+    const newFavorites = [...localFavorites];
+    const [movedItem] = newFavorites.splice(index, 1);
+    newFavorites.splice(newIndex, 0, movedItem);
+    setLocalFavorites(newFavorites);
+  };
+
+  const saveOrder = async () => {
+    await setFavoritesOrder(localFavorites);
+    setIsReordering(false);
+    Alert.alert("Sucesso", "Ordem dos favoritos atualizada!");
+  };
+
+  const cancelReorder = () => {
+    setLocalFavorites(favorites);
+    setIsReordering(false);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.flexGrow}>
       <Header title="Perfil" onMenuPress={() => {}} />
-
-        <View style={styles.main}>
-          <View style={styles.profileSection}>
-            {currentUser?.foto ? (
-              <Image source={{ uri: currentUser.foto }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, { backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }]}>
-                <Text style={{ color: '#fff', fontSize: 40 }}>?</Text>
+      <FlatList
+        ListHeaderComponent={
+          <>
+            <View style={styles.main}>
+              <View style={styles.profileSection}>
+                {currentUser?.foto ? (
+                  <Image source={{ uri: currentUser.foto }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, { backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }]}>
+                    <Text style={{ color: '#fff', fontSize: 40 }}>?</Text>
+                  </View>
+                )}
+                <Text style={styles.nameText}>{currentUser ? currentUser.nome : 'Usuário'}</Text>
+                <TouchableOpacity
+                  style={styles.editProfileButton}
+                  onPress={() => navigation.navigate('EditarPerfil')}
+                >
+                  <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                  <Text style={styles.logoutButtonText}>Logout</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.favoritesSection}>
+              <View style={styles.favoritesHeader}>
+                <Text style={styles.sectionTitle}>Meus Favoritos</Text>
+                {!isReordering && favorites.length > 1 && (
+                  <TouchableOpacity onPress={() => setIsReordering(true)} style={styles.reorderButtonHeader}>
+                    <MaterialCommunityIcons name="swap-vertical" size={24} color="#137fec" />
+                    <Text style={styles.reorderButtonText}>Reordenar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {isReordering && (
+                <View style={styles.reorderActions}>
+                  <TouchableOpacity onPress={saveOrder} style={[styles.actionButton, styles.saveButton]}>
+                    <Text style={styles.actionButtonText}>Salvar Ordem</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={cancelReorder} style={[styles.actionButton, styles.cancelButton]}>
+                    <Text style={styles.actionButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </>
+        }
+        data={localFavorites}
+        keyExtractor={(item, index) => item.id || index.toString()}
+        renderItem={({ item, index }) => (
+          <View style={styles.favoriteCardContainer}>
+            {isReordering && (
+              <View style={styles.reorderControls}>
+                <TouchableOpacity
+                  onPress={() => moveItem(index, 'up')}
+                  disabled={index === 0}
+                  style={[styles.reorderButton, index === 0 && styles.reorderButtonDisabled]}
+                >
+                  <MaterialCommunityIcons 
+                    name="chevron-up" 
+                    size={28} 
+                    color={index === 0 ? '#ccc' : '#137fec'} 
+                  />
+                </TouchableOpacity>
+                <Text style={styles.orderNumber}>{index + 1}</Text>
+                <TouchableOpacity
+                  onPress={() => moveItem(index, 'down')}
+                  disabled={index === localFavorites.length - 1}
+                  style={[styles.reorderButton, index === localFavorites.length - 1 && styles.reorderButtonDisabled]}
+                >
+                  <MaterialCommunityIcons 
+                    name="chevron-down" 
+                    size={28} 
+                    color={index === localFavorites.length - 1 ? '#ccc' : '#137fec'} 
+                  />
+                </TouchableOpacity>
               </View>
             )}
-            <Text style={styles.nameText}>{currentUser ? currentUser.nome : 'Usuário'}</Text>
-            <TouchableOpacity
-              style={styles.editProfileButton}
-              onPress={() => navigation.navigate('EditarPerfil')}
-            >
-              <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            </TouchableOpacity>
+            <View style={styles.cardWrapper}>
+              <FavoriteCard 
+                anuncio={item} 
+                onRemove={() => {
+                  if (!isReordering) {
+                    confirmRemove(item.id!);
+                  }
+                }} 
+              />
+            </View>
           </View>
-        </View>
-      </View>
-
-      {/* Menu de navegação */}
-      <BottomNav/>
+        )}
+        ListEmptyComponent={
+          !loading ? (
+            <Text style={styles.emptyText}>Você ainda não adicionou imóveis aos seus favoritos.</Text>
+          ) : null
+        }
+        contentContainerStyle={styles.contentContainer}
+      />
+      <BottomNav />
     </SafeAreaView>
   );
 }
@@ -70,39 +185,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f7fafc',
   },
-  flexGrow: {
+  contentContainer: {
     flexGrow: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)', // Simulating white/10
-    backgroundColor: 'rgba(255, 255, 255, 0.8)', // Simulating white/80
-    padding: 16,
-    paddingBottom: 12,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  
   main: {
-    flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
   },
   profileSection: {
-    marginBottom: 32, // mb-8 (8 * 4 = 32)
+    marginBottom: 32,
     flexDirection: 'column',
     alignItems: 'center',
   },
   avatar: {
-    marginBottom: 24, // mb-6 (6 * 4 = 24)
-    height: 128, // h-32 (32 * 4 = 128)
-    width: 128, // w-32 (32 * 4 = 128)
+    marginBottom: 24,
+    height: 128,
+    width: 128,
     borderRadius: 64,
   },
   nameText: {
@@ -112,7 +212,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   editProfileButton: {
-    marginBottom: 16, // mb-4 (4 * 4 = 16)
+    marginBottom: 16,
     width: 250,
     borderRadius: 8,
     backgroundColor: '#137fec',
@@ -150,27 +250,87 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#4b5563',
   },
-  navbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+  favoritesSection: {
+    paddingHorizontal: 16,
+    marginTop: 16,
     borderTopWidth: 1,
-    borderColor: '#e5e7eb',
-    height: 64,
-    backgroundColor: '#f6f7f8',
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
+    borderTopColor: '#e5e7eb',
+    paddingTop: 16,
   },
-  navItem: {
+  favoritesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  reorderButtonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+  },
+  reorderButtonText: {
+    color: '#137fec',
+    marginLeft: 4,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  reorderButton: {
+    padding: 4,
+  },
+  reorderButtonDisabled: {
+    opacity: 0.3,
+  },
+  reorderActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  navIcon: {
-    fontSize: 20,
-    color: '#6b7280',
+  saveButton: {
+    backgroundColor: '#28a745',
   },
-  navLabel: {
-    fontSize: 12,
+  cancelButton: {
+    backgroundColor: '#dc3545',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  favoriteCardContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  reorderControls: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginRight: 12,
+    gap: 4,
+  },
+  orderNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#137fec',
+  },
+  cardWrapper: {
+    flex: 1,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 20,
     color: '#6b7280',
+    fontSize: 16,
+    paddingHorizontal: 16,
   },
 });
