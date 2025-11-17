@@ -5,7 +5,7 @@ import axios from 'axios'; // Import axios
 import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"; // <-- ADICIONE Linking
 import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from 'react-native-toast-message';
@@ -13,9 +13,11 @@ import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será
 import BottomNav from '../components/BottomNav';
 import FavoriteButton from '../components/FavoriteButton';
 import { useFavorites } from '../contexts/FavoritesContext';
+import { useRecentlyViewed } from '../contexts/RecentlyViewedContext'; // <-- ADICIONE esta linha
 import { Anuncio } from '../models/Anuncio';
 import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 import { RootStackParamList } from '../types/navigation';
+import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
 
 const { width } = Dimensions.get('window');
 
@@ -80,6 +82,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formCep, setFormCep] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const { isFavorite, addFavorite, removeFavorite, updateFavorite } = useFavorites();
+  const { addToRecentlyViewed } = useRecentlyViewed(); // <-- ADICIONE esta linha
 
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [comentarioTexto, setComentarioTexto] = useState('');
@@ -126,6 +129,10 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         const fetchedAnuncio = anuncioResponse.data;
         setAnuncio(fetchedAnuncio);
 
+        // ADICIONE ESTAS 2 LINHAS:
+        await addToRecentlyViewed(fetchedAnuncio);
+        console.log('AnuncioDetail: Added to recently viewed:', fetchedAnuncio.titulo);
+
         // Pre-fill forms
         setFormTitulo(fetchedAnuncio.titulo);
         setFormDescricao(fetchedAnuncio.descricao);
@@ -170,7 +177,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     };
 
     loadData();
-  }, [anuncioId, idToken]);
+  }, [anuncioId, idToken]); // <-- MANTENHA APENAS ESSAS 2 DEPENDÊNCIAS
 
   const headersAuth = idToken
     ? { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' }
@@ -505,6 +512,82 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     if (isEditing) fetchCoords();
   }, [formEndereco, formNumero, formCidade, formEstado, isEditing]);
 
+  const handleContact = () => {
+    if (!anunciante?.telefone) {
+      Alert.alert('Erro', 'Telefone do anunciante não disponível.');
+      return;
+    }
+
+    const phoneNumber = anunciante.telefone.replace(/\D/g, '');
+
+    Alert.alert(
+      'Contactar Anunciante',
+      `Como deseja entrar em contato com ${anunciante.nome}?`,
+      [
+        {
+          text: 'WhatsApp',
+          onPress: async () => {
+            const message = encodeURIComponent(`Olá, vi seu anúncio "${anuncio?.titulo}" e gostaria de mais informações.`);
+            
+            const whatsappUrls = [
+              `whatsapp://send?phone=55${phoneNumber}&text=${message}`,
+              `https://wa.me/55${phoneNumber}?text=${message}`,
+              `https://api.whatsapp.com/send?phone=55${phoneNumber}&text=${message}`,
+            ];
+
+            let opened = false;
+            for (const url of whatsappUrls) {
+              try {
+                const canOpen = await Linking.canOpenURL(url);
+                if (canOpen) {
+                  await Linking.openURL(url);
+                  opened = true;
+                  break;
+                }
+              } catch (err) {
+                console.log(`Falhou com URL: ${url}`, err);
+              }
+            }
+
+            if (!opened) {
+              Alert.alert(
+                'WhatsApp não encontrado',
+                'Deseja abrir no navegador?',
+                [
+                  { text: 'Sim', onPress: () => Linking.openURL(`https://web.whatsapp.com/send?phone=55${phoneNumber}&text=${message}`) },
+                  { text: 'Não', style: 'cancel' },
+                ]
+              );
+            }
+          },
+        },
+        {
+          text: 'Ligar',
+          onPress: () => {
+            Linking.openURL(`tel:${phoneNumber}`).catch(err => 
+              Alert.alert('Erro', 'Não foi possível abrir o discador.')
+            );
+          },
+        },
+        {
+          text: 'Copiar Número',
+          onPress: async () => {
+            await Clipboard.setStringAsync(phoneNumber); // <-- API do Expo
+            Toast.show({
+              type: 'success',
+              text1: 'Número Copiado! 📋',
+              text2: phoneNumber,
+            });
+          },
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -680,9 +763,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                   ) : (
                     <>
                       <Text style={styles.priceText}>
-                        R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : ''}
+                        R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : '0'}
                       </Text>
-                      <Text style={styles.descriptionText}>{anuncio?.descricao}</Text>
+                      <Text style={styles.descriptionText}>
+                        {anuncio?.descricao || 'Sem descrição'}
+                      </Text>
                     </>
                   )}
                 </View>
@@ -699,7 +784,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                         <Text style={styles.anuncianteName}>{anunciante.nome}</Text>
                         <Text style={styles.anuncianteContato}>{anunciante.telefone}</Text>
                       </View>
-                      <TouchableOpacity style={styles.contactButton}>
+                      <TouchableOpacity style={styles.contactButton} onPress={handleContact}>
                         <Text style={styles.contactButtonText}>Contactar</Text>
                       </TouchableOpacity>
                     </View>
@@ -727,12 +812,12 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                         <Marker coordinate={coords} />
                       </MapView>
                     ) : (
-                      <Text>Mapa não disponível</Text>
+                      <Text style={styles.noMapText}>Mapa não disponível</Text>
                     )}
                   </View>
                 </View>
 
-                <Text style={{ fontWeight: '600', fontSize: 16, marginTop: 16 }}>Comentários</Text>
+                <Text style={styles.sectionTitle}>Comentários</Text>
               </View>
             </View>
           }
@@ -979,42 +1064,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16, 
     color: "#374151", 
-  },
-  anuncianteCard: {
-    marginTop: 16,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
-  },
-  anuncianteInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  anuncianteAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  anuncianteTextContainer: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  anuncianteName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  anuncianteContato: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  contactButton: {
-    backgroundColor: '#137fec',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1138,5 +1187,57 @@ const styles = StyleSheet.create({
   deleteBtn: { color: "#FF3B30" },
   commentForm: { flexDirection: "row", marginTop: 16, alignItems: "center" },
   commentInput: { flex: 1, borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10 },
-  commentSend: { marginLeft: 8, backgroundColor: "#007AFF", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+  commentSend: { 
+    marginLeft: 8, 
+    backgroundColor: "#007AFF", 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    borderRadius: 8 
+  },
+  anuncianteCard: {
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  anuncianteInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  anuncianteAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  anuncianteTextContainer: {
+    flex: 1,
+  },
+  anuncianteName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  anuncianteContato: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  contactButton: {
+    backgroundColor: '#137fec',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  noMapText: { // <-- ADICIONE este estilo
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
 });

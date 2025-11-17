@@ -38,45 +38,83 @@ export const createAnuncio = async (db: Firestore, anuncioData: Omit<Anuncio, 'i
 };
 
 // obter todos anuncios
-export const getAnuncios = async (db: Firestore, searchQuery?: string): Promise<Anuncio[]> => {
-  try {
-    console.log('AnuncioController: Fetching anuncios, searchQuery:', searchQuery);
+export async function getAnuncios(db: Firestore, searchQuery?: string) {
+  console.log('AnuncioController: Fetching anuncios, searchQuery:', searchQuery);
+  
+  let query = db.collection("anuncio").orderBy("createdAt", "desc");
+  
+  const snap = await query.get();
+  console.log(`AnuncioController: Found ${snap.docs.length} anuncios in collection "anuncio"`);
+  
+  let anuncios = snap.docs.map(doc => {
+    const data = doc.data();
+    return { 
+      id: doc.id, 
+      ...data 
+    } as Anuncio;
+  });
+
+  // Se houver busca, buscar nome do anunciante também
+  if (searchQuery && searchQuery.trim()) {
+    const searchLower = searchQuery.toLowerCase().trim();
+    console.log('AnuncioController: Filtering by query:', searchLower);
     
-    let query = db.collection("anuncio").orderBy("createdAt", "desc");
+    // Buscar informações dos usuários para incluir nome do anunciante
+    const userIds = [...new Set(anuncios.map(a => a.userId).filter(Boolean))];
+    const usersMap = new Map<string, any>();
     
-    if (searchQuery) {
-      console.log('AnuncioController: Applying search filter for:', searchQuery);
-      query = query.where("titulo", ">=", searchQuery).where("titulo", "<=", searchQuery + "\uf8ff");
+    if (userIds.length > 0) {
+      const usersSnap = await db.collection("users").where('__name__', 'in', userIds.slice(0, 10)).get();
+      usersSnap.docs.forEach(doc => {
+        usersMap.set(doc.id, doc.data());
+      });
     }
     
-    const snap = await query.get();
-    console.log(`AnuncioController: Found ${snap.docs.length} anuncios in collection "anuncio"`);
-    
-    const anuncios = snap.docs.map(doc => {
-      const data = doc.data();
-      return { 
-        id: doc.id, 
-        ...data 
-      } as Anuncio;
+    anuncios = anuncios.filter(anuncio => {
+      // Busca no título
+      if (anuncio.titulo?.toLowerCase().includes(searchLower)) return true;
+      
+      // Busca na descrição
+      if (anuncio.descricao?.toLowerCase().includes(searchLower)) return true;
+      
+      // Busca no endereço
+      if (anuncio.endereco) {
+        if (anuncio.endereco.logradouro?.toLowerCase().includes(searchLower)) return true;
+        if (anuncio.endereco.bairro?.toLowerCase().includes(searchLower)) return true;
+        if (anuncio.endereco.cidade?.toLowerCase().includes(searchLower)) return true;
+        if (anuncio.endereco.estado?.toLowerCase().includes(searchLower)) return true;
+        if (anuncio.endereco.cep?.toLowerCase().includes(searchLower)) return true;
+      }
+      
+      // Busca no nome do anunciante
+      if (anuncio.userId) {
+        const user = usersMap.get(anuncio.userId);
+        if (user?.nome?.toLowerCase().includes(searchLower)) return true;
+        if (user?.email?.toLowerCase().includes(searchLower)) return true;
+      }
+      
+      // Busca no preço (se digitar número)
+      if (anuncio.preco && anuncio.preco.toString().includes(searchLower)) return true;
+      
+      return false;
     });
     
-    if (anuncios.length > 0) {
-      console.log('AnuncioController: First anuncio:', {
-        id: anuncios[0].id,
-        titulo: anuncios[0].titulo,
-        preco: anuncios[0].preco,
-        userId: anuncios[0].userId
-      });
-    } else {
-      console.warn('AnuncioController: No anuncios found in database');
-    }
-    
-    return anuncios;
-  } catch (error) {
-    console.error("Error getting anuncios: ", error);
-    throw error;
+    console.log(`AnuncioController: Found ${anuncios.length} results after filtering`);
   }
-};
+  
+  if (anuncios.length > 0) {
+    console.log('AnuncioController: First anuncio:', {
+      id: anuncios[0].id,
+      titulo: anuncios[0].titulo,
+      preco: anuncios[0].preco,
+      userId: anuncios[0].userId
+    });
+  } else {
+    console.warn('AnuncioController: No anuncios found in database');
+  }
+  
+  return anuncios;
+}
 
 //obter anuncio especifico
 export const getAnuncioById = async (db: Firestore, id: string): Promise<Anuncio | null> => {
