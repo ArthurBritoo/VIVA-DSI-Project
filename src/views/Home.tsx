@@ -14,10 +14,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth } from "../assets/firebaseConfig";
 import BottomNav from "../components/BottomNav";
-import Header from "../components/Header";
-import { RootStackParamList } from "../types/navigation";
-import { useFavorites } from '../contexts/FavoritesContext';
 import FavoriteButton from '../components/FavoriteButton';
+import Header from "../components/Header";
+import { useFavorites } from '../contexts/FavoritesContext';
+import { RootStackParamList } from "../types/navigation";
 
 
 import { Anuncio } from '../models/Anuncio';
@@ -81,7 +81,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://privative-unphysiological-lamonica.ngrok-free.dev/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
+      const response = await fetch("https://37b68e0b70da.ngrok-free.app/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
         headers: {
           Authorization: `Bearer ${idToken}`,
         },

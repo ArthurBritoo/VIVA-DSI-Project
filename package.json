@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
+    "@expo/metro-config": "~54.0.2",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-navigation/bottom-tabs": "^7.8.5",
