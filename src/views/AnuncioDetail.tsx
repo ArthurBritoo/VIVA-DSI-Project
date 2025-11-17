@@ -13,6 +13,7 @@ import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será
 import BottomNav from '../components/BottomNav';
 import FavoriteButton from '../components/FavoriteButton';
 import { useFavorites } from '../contexts/FavoritesContext';
+import { useRecentlyViewed } from '../contexts/RecentlyViewedContext'; // <-- ADICIONE esta linha
 import { Anuncio } from '../models/Anuncio';
 import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 import { RootStackParamList } from '../types/navigation';
@@ -80,6 +81,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formCep, setFormCep] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const { isFavorite, addFavorite, removeFavorite, updateFavorite } = useFavorites();
+  const { addToRecentlyViewed } = useRecentlyViewed(); // <-- ADICIONE esta linha
 
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [comentarioTexto, setComentarioTexto] = useState('');
@@ -126,6 +128,10 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         const fetchedAnuncio = anuncioResponse.data;
         setAnuncio(fetchedAnuncio);
 
+        // ADICIONE ESTAS 2 LINHAS:
+        await addToRecentlyViewed(fetchedAnuncio);
+        console.log('AnuncioDetail: Added to recently viewed:', fetchedAnuncio.titulo);
+
         // Pre-fill forms
         setFormTitulo(fetchedAnuncio.titulo);
         setFormDescricao(fetchedAnuncio.descricao);
@@ -170,7 +176,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     };
 
     loadData();
-  }, [anuncioId, idToken]);
+  }, [anuncioId, idToken]); // <-- MANTENHA APENAS ESSAS 2 DEPENDÊNCIAS
 
   const headersAuth = idToken
     ? { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' }
