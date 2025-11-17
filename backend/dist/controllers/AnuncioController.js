@@ -21,14 +21,20 @@ const createAnuncio = async (db, anuncioData, userId) => {
 };
 exports.createAnuncio = createAnuncio;
 // obter todos anuncios
-const getAnuncios = async (db) => {
+const getAnuncios = async (db, searchQuery) => {
     try {
         const anunciosCollectionRef = db.collection("anuncio");
-        const querySnapshot = await anunciosCollectionRef.get();
-        return querySnapshot.docs.map(doc => ({
+        const querySnapshot = await anunciosCollectionRef.orderBy("createdAt", "desc").get();
+        let anuncios = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+        if (searchQuery) {
+            const lowercasedQuery = searchQuery.toLowerCase();
+            anuncios = anuncios.filter(anuncio => anuncio.titulo.toLowerCase().includes(lowercasedQuery) ||
+                anuncio.descricao.toLowerCase().includes(lowercasedQuery));
+        }
+        return anuncios;
     }
     catch (error) {
         console.error("Error getting anuncios: ", error);
