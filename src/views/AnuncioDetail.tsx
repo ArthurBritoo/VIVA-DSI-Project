@@ -5,7 +5,7 @@ import axios from 'axios'; // Import axios
 import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from 'react-native-toast-message';
 import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será removido daqui)
@@ -20,7 +20,7 @@ import { useFavorites } from '../contexts/FavoritesContext';
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -37,6 +37,24 @@ interface Anunciante {
   telefone: string;
 }
 
+type Comentario = {
+  id: string;
+  anuncioId: string;
+  userId: string;
+  texto: string;
+  createdAt?: any;
+  updatedAt?: any;
+  userName?: string;
+  userPhoto?: string;
+};
+
+interface UserBasic {
+  uid: string;
+  nome?: string;
+  foto?: string;
+}
+
+const [userCache, setUserCache] = useState<Record<string, UserBasic>>({});
 
 // A função uploadImageToStorage será removida
 
@@ -61,6 +79,10 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formCep, setFormCep] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const { isFavorite, addFavorite, removeFavorite, updateFavorite } = useFavorites();
+
+  const [comentarios, setComentarios] = useState<Comentario[]>([]);
+  const [comentarioTexto, setComentarioTexto] = useState('');
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -145,6 +167,103 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
     loadData();
   }, [anuncioId, idToken]);
+
+  // Carregar comentários quando abrir a tela ou trocar o anuncioId
+  useEffect(() => {
+    if (!anuncioId) return;
+    fetchComentarios();
+  }, [anuncioId]);
+
+  const headersAuth = idToken
+    ? { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+
+  // Adicione logs para depurar 404
+  useEffect(() => {
+    console.log('DEBUG anuncioId:', anuncioId);
+  }, [anuncioId]);
+
+  const fetchUserForComment = async (uid: string) => {
+    if (userCache[uid]) return userCache[uid];
+    try {
+      const { data } = await axios.get<UserBasic>(`${BASE_URL}/users/${uid}`, idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : undefined);
+      const userData: UserBasic = { uid, nome: (data as any).nome, foto: (data as any).foto };
+      setUserCache(prev => ({ ...prev, [uid]: userData }));
+      return userData;
+    } catch {
+      return { uid };
+    }
+  };
+
+  const enrichComentarios = async (lista: Comentario[]) => {
+    const enriched = await Promise.all(
+      lista.map(async c => {
+        const u = await fetchUserForComment(c.userId);
+        return { ...c, userName: u.nome || 'Usuário', userPhoto: u.foto };
+      })
+    );
+    setComentarios(enriched);
+  };
+
+  const fetchComentarios = async () => {
+    if (!anuncioId) return;
+    const url = `${BASE_URL}/anuncios/${anuncioId}/comentarios`;
+    console.log('URL comentários:', url);
+    try {
+      const { data } = await axios.get<Comentario[]>(url);
+      await enrichComentarios(data);
+    } catch (e:any) {
+      console.log('Erro ao listar comentários:', e?.response?.status, e?.response?.data || e.message);
+    }
+  };
+
+  const criarComentario = async () => {
+    if (!comentarioTexto.trim()) return;
+    try {
+      await axios.post(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios`,
+        { texto: comentarioTexto.trim() },
+        { headers: headersAuth }
+      );
+      setComentarioTexto('');
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao criar comentário:', e);
+    }
+  };
+
+  const iniciarEdicao = (c: Comentario) => {
+    setEditandoId(c.id);
+    setComentarioTexto(c.texto);
+  };
+
+  const salvarEdicao = async () => {
+    if (!editandoId) return;
+    try {
+      await axios.put(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios/${editandoId}`,
+        { texto: comentarioTexto.trim() },
+        { headers: headersAuth }
+      );
+      setEditandoId(null);
+      setComentarioTexto('');
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao atualizar comentário:', e);
+    }
+  };
+
+  const excluirComentario = async (id: string) => {
+    try {
+      await axios.delete(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios/${id}`,
+        { headers: headersAuth }
+      );
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao excluir comentário:', e);
+    }
+  };
 
   const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
 
@@ -452,174 +571,242 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         {isEditing && <View style={styles.headerButton} /> }
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.imageGallery}>
-          {isEditing ? (
-            <TouchableOpacity onPress={handlePickImage} style={styles.imagePickerContainer}>
-              {formImageUrl ? (
-                <Image source={{ uri: formImageUrl }} style={styles.mainImage} />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <MaterialCommunityIcons name="camera-plus" size={50} color="#ccc" />
-                  <Text style={styles.imagePlaceholderText}>Adicionar Imagem</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <Image source={{ uri: anuncio?.imageUrl || "https://via.placeholder.com/400x300?text=Sem+Imagem" }} style={styles.mainImage} />
-          )}
-          
-          {!isEditing && (
-            <View style={styles.paginationContainer}>
-              <View style={styles.paginationDotActive}></View>
-              <View style={styles.paginationDot}></View>
-              <View style={styles.paginationDot}></View>
-              <View style={styles.paginationDot}></View>
-              <View style={styles.paginationDot}></View>
-            </View>
-          )}
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007bff" />
+          <Text style={styles.loadingText}>
+            {!currentUser && anuncioId ? "Aguardando autenticação..." : "Carregando..."}
+          </Text>
         </View>
+      )}
 
-        <View style={styles.contentPadding}>
-          <View style={styles.infoCard}>
-            {isEditing ? (
-              <>
-                <TextInput
-                  style={[styles.input, styles.priceInput]}
-                  placeholder="Preço"
-                  value={formPreco}
-                  onChangeText={setFormPreco}
-                  keyboardType="numeric"
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Título"
-                  value={formTitulo}
-                  onChangeText={setFormTitulo}
-                />
-                <TextInput
-                  style={[styles.input, styles.descriptionInput]}
-                  placeholder="Descrição"
-                  value={formDescricao}
-                  onChangeText={setFormDescricao}
-                  multiline
-                  numberOfLines={4}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Endereço"
-                  value={formEndereco}
-                  onChangeText={setFormEndereco}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Número"
-                  value={formNumero}
-                  onChangeText={setFormNumero}
-                  keyboardType="numeric"
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Cidade"
-                  value={formCidade}
-                  onChangeText={setFormCidade}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Estado"
-                  value={formEstado}
-                  onChangeText={setFormEstado}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Bairro"
-                  value={formBairro}
-                  onChangeText={setFormBairro}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="CEP"
-                  value={formCep}
-                  onChangeText={setFormCep}
-                  keyboardType="numeric"
-                />
-              </>
-            ) : (
-              <>
-                <Text style={styles.priceText}>R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : ''}</Text>
-                <Text style={styles.descriptionText}>{anuncio?.descricao}</Text>
-              </>
-            )}
-          </View>
+      {!loading && (
+        <FlatList
+          data={comentarios}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <View>
+              <View style={styles.imageGallery}>
+                {isEditing ? (
+                  <TouchableOpacity onPress={handlePickImage} style={styles.imagePickerContainer}>
+                    {formImageUrl ? (
+                      <Image source={{ uri: formImageUrl }} style={styles.mainImage} />
+                    ) : (
+                      <View style={styles.imagePlaceholder}>
+                        <MaterialCommunityIcons name="camera-plus" size={50} color="#ccc" />
+                        <Text style={styles.imagePlaceholderText}>Adicionar Imagem</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <Image
+                    source={{ uri: anuncio?.imageUrl || "https://via.placeholder.com/400x300?text=Sem+Imagem" }}
+                    style={styles.mainImage}
+                  />
+                )}
+                {!isEditing && (
+                  <View style={styles.paginationContainer}>
+                    <View style={styles.paginationDotActive}></View>
+                    <View style={styles.paginationDot}></View>
+                    <View style={styles.paginationDot}></View>
+                    <View style={styles.paginationDot}></View>
+                    <View style={styles.paginationDot}></View>
+                  </View>
+                )}
+              </View>
 
-          {anunciante && !isEditing && (
-            <View style={styles.anuncianteCard}>
-              <Text style={styles.sectionTitle}>Anunciante</Text>
-              <View style={styles.anuncianteInfo}>
-                <Image source={{ uri: anunciante.foto || 'https://via.placeholder.com/150' }} style={styles.anuncianteAvatar} />
-                <View style={styles.anuncianteTextContainer}>
-                  <Text style={styles.anuncianteName}>{anunciante.nome}</Text>
-                  <Text style={styles.anuncianteContato}>{anunciante.telefone}</Text>
+              <View style={styles.contentPadding}>
+                <View style={styles.infoCard}>
+                  {isEditing ? (
+                    <>
+                      <TextInput
+                        style={[styles.input, styles.priceInput]}
+                        placeholder="Preço"
+                        value={formPreco}
+                        onChangeText={setFormPreco}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Título"
+                        value={formTitulo}
+                        onChangeText={setFormTitulo}
+                      />
+                      <TextInput
+                        style={[styles.input, styles.descriptionInput]}
+                        placeholder="Descrição"
+                        value={formDescricao}
+                        onChangeText={setFormDescricao}
+                        multiline
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Endereço"
+                        value={formEndereco}
+                        onChangeText={setFormEndereco}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Número"
+                        value={formNumero}
+                        onChangeText={setFormNumero}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Cidade"
+                        value={formCidade}
+                        onChangeText={setFormCidade}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Estado"
+                        value={formEstado}
+                        onChangeText={setFormEstado}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Bairro"
+                        value={formBairro}
+                        onChangeText={setFormBairro}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="CEP"
+                        value={formCep}
+                        onChangeText={setFormCep}
+                        keyboardType="numeric"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.priceText}>
+                        R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : ''}
+                      </Text>
+                      <Text style={styles.descriptionText}>{anuncio?.descricao}</Text>
+                    </>
+                  )}
                 </View>
-                <TouchableOpacity style={styles.contactButton}>
-                  <Text style={styles.contactButtonText}>Contactar</Text>
-                </TouchableOpacity>
+
+                {anunciante && !isEditing && (
+                  <View style={styles.anuncianteCard}>
+                    <Text style={styles.sectionTitle}>Anunciante</Text>
+                    <View style={styles.anuncianteInfo}>
+                      <Image
+                        source={{ uri: anunciante.foto || 'https://via.placeholder.com/150' }}
+                        style={styles.anuncianteAvatar}
+                      />
+                      <View style={styles.anuncianteTextContainer}>
+                        <Text style={styles.anuncianteName}>{anunciante.nome}</Text>
+                        <Text style={styles.anuncianteContato}>{anunciante.telefone}</Text>
+                      </View>
+                      <TouchableOpacity style={styles.contactButton}>
+                        <Text style={styles.contactButtonText}>Contactar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.locationCard}>
+                  <Text style={styles.locationTitle}>Localização</Text>
+                  {!isEditing && anuncio?.endereco && (
+                    <Text style={styles.addressText}>
+                      {`${anuncio.endereco.logradouro}, ${anuncio.endereco.numero} - ${anuncio.endereco.bairro}, ${anuncio.endereco.cidade} - ${anuncio.endereco.estado}, ${anuncio.endereco.cep}`}
+                    </Text>
+                  )}
+                  <View style={styles.mapContainer}>
+                    {coords ? (
+                      <MapView
+                        style={styles.mapImage}
+                        initialRegion={{
+                          latitude: coords.latitude,
+                          longitude: coords.longitude,
+                          latitudeDelta: 0.01,
+                          longitudeDelta: 0.01,
+                        }}
+                      >
+                        <Marker coordinate={coords} />
+                      </MapView>
+                    ) : (
+                      <Text>Mapa não disponível</Text>
+                    )}
+                  </View>
+                </View>
+
+                <Text style={{ fontWeight: '600', fontSize: 16, marginTop: 16 }}>Comentários</Text>
               </View>
             </View>
-          )}
-
-          <View style={styles.locationCard}>
-            <Text style={styles.locationTitle}>Localização</Text>
-            {!isEditing && anuncio?.endereco && (
-              <Text style={styles.addressText}>
-                {`${anuncio.endereco.logradouro}, ${anuncio.endereco.numero} - ${anuncio.endereco.bairro}, ${anuncio.endereco.cidade} - ${anuncio.endereco.estado}, ${anuncio.endereco.cep}`}
-              </Text>
-            )}
-            <View style={styles.mapContainer}>
-              {coords ? (
-                <MapView
-                  style={styles.mapImage}
-                  initialRegion={{
-                    latitude: coords.latitude,
-                    longitude: coords.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }}
-                >
-                  <Marker coordinate={coords} />
-                </MapView>
-              ) : (
-                <Text>Mapa não disponível</Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.commentItem}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Image
+                  source={{ uri: item.userPhoto || 'https://via.placeholder.com/40' }}
+                  style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '600' }}>{item.userName || 'Usuário'}</Text>
+                  <Text style={styles.commentText}>{item.texto}</Text>
+                </View>
+                {item.userId === currentUser?.uid && (
+                  <TouchableOpacity onPress={() => iniciarEdicao(item)} style={{ padding: 4 }}>
+                    <MaterialCommunityIcons name="dots-vertical" size={22} color="#555" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {item.userId === currentUser?.uid && editandoId === item.id && (
+                <View style={styles.commentActions}>
+                  <TouchableOpacity onPress={() => salvarEdicao()}>
+                    <Text style={styles.editBtn}>Salvar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => excluirComentario(item.id)}>
+                    <Text style={styles.deleteBtn}>Excluir</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setEditandoId(null); setComentarioTexto(''); }}>
+                    <Text style={{ color: '#666' }}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
-          </View>
-        </View>
+          )}
+          ListFooterComponent={
+            <View style={{ paddingHorizontal: 16, paddingBottom: 120 }}>
+              <View style={styles.commentForm}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder={editandoId ? 'Editar comentário...' : 'Escreva um comentário...'}
+                  value={comentarioTexto}
+                  onChangeText={setComentarioTexto}
+                />
+                <TouchableOpacity
+                  style={styles.commentSend}
+                  onPress={editandoId ? salvarEdicao : criarComentario}
+                  disabled={!comentarioTexto.trim()}
+                >
+                  <Text style={{ color: 'white' }}>{editandoId ? 'Salvar' : 'Enviar'}</Text>
+                </TouchableOpacity>
+              </View>
 
-        {isEditing && (
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
-              <Text style={styles.buttonText}>Salvar Anúncio</Text>
-            </TouchableOpacity>
-            {isOwner && anuncioId && (
-              <TouchableOpacity onPress={handleDelete} style={[styles.button, styles.deleteButton]}>
-                <Text style={styles.buttonText}>Deletar Anúncio</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={handleCancelEdit} style={[styles.button, styles.cancelButton]}>
-              <Text style={styles.buttonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        {!anuncioId && !isEditing && (
-          <View style={styles.noAnuncioContainer}>
-            <Text style={styles.noAnuncioText}>Nenhum anúncio para exibir. Comece a criar um!</Text>
-            <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.button}>
-              <Text style={styles.buttonText}>Criar Novo Anúncio</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
+              {isEditing && (
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
+                    <Text style={styles.buttonText}>Salvar Anúncio</Text>
+                  </TouchableOpacity>
+                  {isOwner && anuncioId && (
+                    <TouchableOpacity onPress={handleDelete} style={[styles.button, styles.deleteButton]}>
+                      <Text style={styles.buttonText}>Deletar Anúncio</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={handleCancelEdit} style={[styles.button, styles.cancelButton]}>
+                    <Text style={styles.buttonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          }
+          contentContainerStyle={{ paddingBottom: 40 }}
+        />
+      )}
 
       {isOwner && anuncioId && !isEditing && (
         <TouchableOpacity style={styles.fab} onPress={() => setIsEditing(true)}>
@@ -627,7 +814,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         </TouchableOpacity>
       )}
 
-      <BottomNav/>
+      <BottomNav />
       <Toast />
     </SafeAreaView>
   );
@@ -944,26 +1131,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-  featuresEditContainer: {
-    marginBottom: 15,
-  },
-  newFeatureInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  newFeatureInput: {
-    flex: 1,
-    marginBottom: 0, 
-    marginRight: 10,
-  },
-  addFeatureButton: {
-    padding: 8,
-  }
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginTop: 24 },
+  commentItem: { paddingVertical: 12, borderBottomWidth: 1, borderColor: "#eee" },
+  commentText: { color: "#333" },
+  commentActions: { flexDirection: "row", gap: 16, marginTop: 6 },
+  editBtn: { color: "#007AFF" },
+  deleteBtn: { color: "#FF3B30" },
+  commentForm: { flexDirection: "row", marginTop: 16, alignItems: "center" },
+  commentInput: { flex: 1, borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10 },
+  commentSend: { marginLeft: 8, backgroundColor: "#007AFF", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
 });

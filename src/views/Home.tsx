@@ -81,7 +81,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://contrite-graspingly-ligia.ngrok-free.dev/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
+      const response = await fetch("https://privative-unphysiological-lamonica.ngrok-free.dev/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
