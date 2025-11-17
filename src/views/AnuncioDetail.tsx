@@ -20,7 +20,7 @@ import { RootStackParamList } from '../types/navigation';
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://37b68e0b70da.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -153,6 +153,9 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setAnunciante(userResponse.data);
         }
 
+        // ADICIONE ISSO: Carregar comentários logo após carregar o anúncio
+        await fetchComentarios();
+
       } catch (error) {
         console.error("Error fetching data:", error);
         Toast.show({
@@ -168,12 +171,6 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
     loadData();
   }, [anuncioId, idToken]);
-
-  // Carregar comentários quando abrir a tela ou trocar o anuncioId
-  useEffect(() => {
-    if (!anuncioId) return;
-    fetchComentarios();
-  }, [anuncioId]);
 
   const headersAuth = idToken
     ? { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' }
@@ -212,9 +209,10 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     console.log('URL comentários:', url);
     try {
       const { data } = await axios.get<Comentario[]>(url);
-      await enrichComentarios(data);
-    } catch (e:any) {
+      await enrichComentarios(data); // <-- JÁ ESTAVA CHAMANDO, MAS VAMOS GARANTIR
+    } catch (e: any) {
       console.log('Erro ao listar comentários:', e?.response?.status, e?.response?.data || e.message);
+      setComentarios([]); // <-- ADICIONE ISSO para limpar em caso de erro
     }
   };
 

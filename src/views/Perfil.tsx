@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -27,20 +27,37 @@ export default function Perfil() {
   const { favorites, removeFavorite, setFavoritesOrder, loading, reloadFavorites } = useFavorites();
   const [isReordering, setIsReordering] = useState(false);
   const [localFavorites, setLocalFavorites] = useState<Anuncio[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
+    console.log("Perfil: Favorites updated, count:", favorites.length);
     setLocalFavorites(favorites);
   }, [favorites]);
 
   useFocusEffect(
     React.useCallback(() => {
+      console.log("Perfil: Screen focused, reloading favorites");
       reloadFavorites();
     }, [])
   );
 
   const handleLogout = () => {
-    setCurrentUser(null);
-    navigation.navigate('Login');
+    Alert.alert(
+      "Logout",
+      "Tem certeza que deseja sair?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Sim, sair", 
+          onPress: () => {
+            console.log("Perfil: User logged out");
+            setCurrentUser(null);
+            navigation.navigate('Login');
+          },
+          style: 'destructive'
+        }
+      ]
+    );
   };
 
   const confirmRemove = (id: string) => {
@@ -49,7 +66,16 @@ export default function Perfil() {
       "Tem certeza que deseja remover este imóvel dos seus favoritos?",
       [
         { text: "Cancelar", style: "cancel" },
-        { text: "Sim, remover", onPress: () => removeFavorite(id), style: 'destructive' }
+        { 
+          text: "Sim, remover", 
+          onPress: async () => {
+            console.log("Perfil: Removing favorite:", id);
+            await removeFavorite(id);
+            // Atualiza localFavorites imediatamente para evitar inconsistência visual
+            setLocalFavorites(prev => prev.filter(fav => fav.id !== id));
+          }, 
+          style: 'destructive' 
+        }
       ]
     );
   };
@@ -58,6 +84,7 @@ export default function Perfil() {
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= localFavorites.length) return;
 
+    console.log(`Perfil: Moving item from ${index} to ${newIndex}`);
     const newFavorites = [...localFavorites];
     const [movedItem] = newFavorites.splice(index, 1);
     newFavorites.splice(newIndex, 0, movedItem);
@@ -65,12 +92,24 @@ export default function Perfil() {
   };
 
   const saveOrder = async () => {
-    await setFavoritesOrder(localFavorites);
-    setIsReordering(false);
-    Alert.alert("Sucesso", "Ordem dos favoritos atualizada!");
+    console.log("Perfil: Saving favorites order");
+    setIsSaving(true);
+    try {
+      await setFavoritesOrder(localFavorites);
+      setIsReordering(false);
+      Alert.alert("Sucesso", "Ordem dos favoritos atualizada!");
+    } catch (error) {
+      console.error("Perfil: Error saving order:", error);
+      Alert.alert("Erro", "Não foi possível salvar a ordem. Tente novamente.");
+      // Reverte para a ordem original em caso de erro
+      setLocalFavorites(favorites);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const cancelReorder = () => {
+    console.log("Perfil: Cancelling reorder");
     setLocalFavorites(favorites);
     setIsReordering(false);
   };
@@ -95,16 +134,16 @@ export default function Perfil() {
                   style={styles.editProfileButton}
                   onPress={() => navigation.navigate('EditarPerfil')}
                 >
-                  <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+                  <Text style={styles.editProfileButtonText}>Editar Perfil</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                  <Text style={styles.logoutButtonText}>Logout</Text>
+                  <Text style={styles.logoutButtonText}>Sair</Text>
                 </TouchableOpacity>
               </View>
             </View>
             <View style={styles.favoritesSection}>
               <View style={styles.favoritesHeader}>
-                <Text style={styles.sectionTitle}>Meus Favoritos</Text>
+                <Text style={styles.sectionTitle}>Meus Favoritos ({localFavorites.length})</Text>
                 {!isReordering && favorites.length > 1 && (
                   <TouchableOpacity onPress={() => setIsReordering(true)} style={styles.reorderButtonHeader}>
                     <MaterialCommunityIcons name="swap-vertical" size={24} color="#137fec" />
@@ -114,10 +153,22 @@ export default function Perfil() {
               </View>
               {isReordering && (
                 <View style={styles.reorderActions}>
-                  <TouchableOpacity onPress={saveOrder} style={[styles.actionButton, styles.saveButton]}>
-                    <Text style={styles.actionButtonText}>Salvar Ordem</Text>
+                  <TouchableOpacity 
+                    onPress={saveOrder} 
+                    style={[styles.actionButton, styles.saveButton]}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.actionButtonText}>Salvar Ordem</Text>
+                    )}
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={cancelReorder} style={[styles.actionButton, styles.cancelButton]}>
+                  <TouchableOpacity 
+                    onPress={cancelReorder} 
+                    style={[styles.actionButton, styles.cancelButton]}
+                    disabled={isSaving}
+                  >
                     <Text style={styles.actionButtonText}>Cancelar</Text>
                   </TouchableOpacity>
                 </View>
@@ -165,16 +216,34 @@ export default function Perfil() {
                   }
                 }} 
               />
-
             </View>
           </View>
         )}
         ListEmptyComponent={
-          !loading ? (
-            <Text style={styles.emptyText}>Você ainda não adicionou imóveis aos seus favoritos.</Text>
-          ) : null
+          loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#137fec" />
+              <Text style={styles.loadingText}>Carregando favoritos...</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="heart-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>Você ainda não adicionou imóveis aos seus favoritos.</Text>
+              <TouchableOpacity 
+                style={styles.exploreButton}
+                onPress={() => navigation.navigate('Home')}
+              >
+                <Text style={styles.exploreButtonText}>Explorar Imóveis</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[
+          styles.contentContainer,
+          localFavorites.length === 0 && styles.contentContainerEmpty
+        ]}
+        refreshing={loading}
+        onRefresh={reloadFavorites}
       />
       <BottomNav />
     </SafeAreaView>
@@ -188,6 +257,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
+  },
+  contentContainerEmpty: {
+    justifyContent: 'center',
   },
   main: {
     flexDirection: 'column',
@@ -295,6 +367,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
   saveButton: {
     backgroundColor: '#28a745',
@@ -327,11 +401,38 @@ const styles = StyleSheet.create({
   cardWrapper: {
     flex: 1,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 20,
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
     color: '#6b7280',
     fontSize: 16,
-    paddingHorizontal: 16,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+    color: '#6b7280',
+    fontSize: 16,
+  },
+  exploreButton: {
+    backgroundColor: '#137fec',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  exploreButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -49,14 +49,14 @@ if (!admin.apps.length) {
 }
 function authenticate(req, res, next) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
         return res.status(401).json({ error: "Missing Authorization header" });
     }
-    const token = authHeader.substring(7).trim();
+    const token = authHeader.slice(7).trim();
     admin
         .auth()
         .verifyIdToken(token)
-        .then(decoded => {
+        .then((decoded) => {
         req.user = { uid: decoded.uid };
         next();
     })
