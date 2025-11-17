@@ -154,10 +154,19 @@ export default function Buscar() {
         <Text style={styles.cardPrice}>
           R$ {item.preco?.toLocaleString('pt-BR') || '0'}
         </Text>
-        {item.endereco?.cidade && (
-          <Text style={styles.cardLocation} numberOfLines={1}>
-            📍 {item.endereco.cidade}{item.endereco.estado ? `, ${item.endereco.estado}` : ''}
-          </Text>
+        {item.endereco && (
+          <>
+            {item.endereco.bairro && (
+              <Text style={styles.cardLocation} numberOfLines={1}>
+                📍 {item.endereco.bairro}
+              </Text>
+            )}
+            {item.endereco.cidade && (
+              <Text style={styles.cardLocation} numberOfLines={1}>
+                🏙️ {item.endereco.cidade}{item.endereco.estado ? ` - ${item.endereco.estado}` : ''}
+              </Text>
+            )}
+          </>
         )}
       </View>
     </TouchableOpacity>
