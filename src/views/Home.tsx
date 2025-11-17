@@ -53,7 +53,7 @@ export default function App() {
 
   // 🔹 Atualiza token de autenticação quando o usuário muda
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user)  => {
       setCurrentUser(user);
 
       if (!user) {
@@ -81,7 +81,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://contrite-graspingly-ligia.ngrok-free.dev/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
+      const response = await fetch("https://1edc542864d1.ngrok-free.app/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
         headers: {
           Authorization: `Bearer ${idToken}`,
         },

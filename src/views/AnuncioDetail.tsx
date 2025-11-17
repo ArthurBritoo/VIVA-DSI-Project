@@ -6,21 +6,21 @@ import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from 'react-native-toast-message';
 import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será removido daqui)
 import BottomNav from '../components/BottomNav';
-import { RootStackParamList } from '../types/navigation';
-import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
-import MapView, { Marker } from 'react-native-maps';
-import { Anuncio } from '../models/Anuncio';
 import FavoriteButton from '../components/FavoriteButton';
 import { useFavorites } from '../contexts/FavoritesContext';
+import { Anuncio } from '../models/Anuncio';
+import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
+import { RootStackParamList } from '../types/navigation';
 
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://1edc542864d1.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
