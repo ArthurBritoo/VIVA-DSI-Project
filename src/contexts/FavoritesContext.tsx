@@ -15,35 +15,35 @@ interface FavoritesContextType {
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
-// URL base do backend
-const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev";
+// ATUALIZE ESTA URL COM SUA URL DO NGROK ATUAL
+const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev";
 
 export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [favorites, setFavorites] = useState<Anuncio[]>([]);
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState<string | null>(null);
 
-  // Monitora autenticação e obtém token
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         try {
           const token = await user.getIdToken(true);
+          console.log("FavoritesContext: ID token obtained");
           setIdToken(token);
         } catch (error) {
-          console.error("Error getting ID token:", error);
+          console.error("FavoritesContext: Error getting ID token:", error);
           setIdToken(null);
         }
       } else {
+        console.log("FavoritesContext: User logged out, clearing favorites");
         setIdToken(null);
-        setFavorites([]); // Limpa favoritos ao deslogar
+        setFavorites([]);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Carrega favoritos quando o token está disponível
   useEffect(() => {
     if (idToken) {
       loadFavorites();
@@ -54,27 +54,32 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const loadFavorites = async () => {
     if (!idToken) {
-      console.log("No token available, skipping favorites fetch");
+      console.log("FavoritesContext: No token available, skipping favorites fetch");
       setLoading(false);
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/favorites`, {
+      console.log("FavoritesContext: Fetching favorites from", "https://privative-unphysiological-lamonica.ngrok-free.dev/favorites");
+      const response = await fetch("https://privative-unphysiological-lamonica.ngrok-free.dev/favorites", {
         headers: {
           'Authorization': `Bearer ${idToken}`,
+          'ngrok-skip-browser-warning': 'true', // <-- adicione esta linha
         },
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`FavoritesContext: HTTP error ${response.status}:`, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("FavoritesContext: Favorites loaded:", data.length);
       setFavorites(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Failed to load favorites from backend", error);
+      console.error("FavoritesContext: Failed to load favorites from backend", error);
       setFavorites([]);
     } finally {
       setLoading(false);
@@ -83,11 +88,12 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const addFavorite = async (anuncio: Anuncio) => {
     if (!idToken || !anuncio.id) {
-      console.warn("Cannot add favorite: missing token or anuncio ID");
+      console.warn("FavoritesContext: Cannot add favorite - missing token or anuncio ID");
       return;
     }
 
-    // Optimistic update
+    console.log("FavoritesContext: Adding favorite (optimistic):", anuncio.id);
+    const previousFavorites = [...favorites];
     const newFavorites = [...favorites, anuncio];
     setFavorites(newFavorites);
 
@@ -102,25 +108,26 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`FavoritesContext: Failed to add favorite - HTTP ${response.status}:`, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Mantém estado otimista; backend confirmará em segundo plano
-      // Opcional: poderíamos agendar um reload com debounce se necessário
+      console.log("FavoritesContext: Favorite added successfully");
     } catch (error) {
-      console.error("Failed to add favorite", error);
-      // Reverte optimistic update em caso de erro
-      setFavorites(favorites);
+      console.error("FavoritesContext: Error adding favorite, reverting", error);
+      setFavorites(previousFavorites);
     }
   };
 
   const removeFavorite = async (anuncioId: string) => {
     if (!idToken) {
-      console.warn("Cannot remove favorite: missing token");
+      console.warn("FavoritesContext: Cannot remove favorite - missing token");
       return;
     }
 
-    // Optimistic update
+    console.log("FavoritesContext: Removing favorite (optimistic):", anuncioId);
+    const previousFavorites = [...favorites];
     const newFavorites = favorites.filter(fav => fav.id !== anuncioId);
     setFavorites(newFavorites);
 
@@ -133,34 +140,37 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`FavoritesContext: Failed to remove favorite - HTTP ${response.status}:`, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      console.log("FavoritesContext: Favorite removed successfully");
     } catch (error) {
-      console.error("Failed to remove favorite", error);
-      // Reverte optimistic update em caso de erro
-      setFavorites(favorites);
+      console.error("FavoritesContext: Error removing favorite, reverting", error);
+      setFavorites(previousFavorites);
     }
   };
 
   const updateFavorite = async (anuncio: Anuncio) => {
-    if (!anuncio.id) return;
+    if (!anuncio.id) {
+      console.warn("FavoritesContext: Cannot update favorite - missing anuncio ID");
+      return;
+    }
     
-    // Atualiza no estado local (mantém a lógica atual)
+    console.log("FavoritesContext: Updating favorite locally:", anuncio.id);
     const newFavorites = favorites.map(fav => (fav.id === anuncio.id ? anuncio : fav));
     setFavorites(newFavorites);
-    
-    // Nota: updateFavorite não precisa chamar o backend, pois apenas atualiza 
-    // os detalhes do anúncio em memória. O backend já terá os dados atualizados
-    // quando recarregarmos os favoritos.
   };
 
   const setFavoritesOrder = async (reorderedFavorites: Anuncio[]) => {
     if (!idToken) {
-      console.warn("Cannot reorder favorites: missing token");
+      console.warn("FavoritesContext: Cannot reorder favorites - missing token");
       return;
     }
 
-    // Optimistic update
+    console.log("FavoritesContext: Reordering favorites (optimistic)");
+    const previousFavorites = [...favorites];
     setFavorites(reorderedFavorites);
 
     try {
@@ -168,6 +178,7 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
         .map(fav => fav.id)
         .filter(id => id !== undefined) as string[];
 
+      console.log("FavoritesContext: Sending new order to backend:", anuncioIds.length, "items");
       const response = await fetch(`${BASE_URL}/favorites/order`, {
         method: 'PATCH',
         headers: {
@@ -178,11 +189,16 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`FavoritesContext: Failed to update order - HTTP ${response.status}:`, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      console.log("FavoritesContext: Favorites order updated successfully");
     } catch (error) {
-      console.error("Failed to update favorites order", error);
-      // Reverte optimistic update em caso de erro
+      console.error("FavoritesContext: Error updating favorites order, reloading from backend", error);
+      // Reverte e recarrega do backend para garantir consistência
+      setFavorites(previousFavorites);
       await loadFavorites();
     }
   };

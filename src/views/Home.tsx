@@ -81,9 +81,10 @@ export default function App() {
     }
 
     try {
-      const response = await fetch("https://37b68e0b70da.ngrok-free.app/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
+      const response = await fetch("https://privative-unphysiological-lamonica.ngrok-free.dev/anuncios", {
         headers: {
           Authorization: `Bearer ${idToken}`,
+          'ngrok-skip-browser-warning': 'true',
         },
       });
 

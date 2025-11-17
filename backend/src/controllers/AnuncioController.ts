@@ -1,14 +1,14 @@
-import * as admin from "firebase-admin";
+import { Firestore } from "firebase-admin/firestore";
 
 export interface Endereco {
-  logradouro: string;
-  numero: string;
-  bairro: string;
-  cidade: string;
-  estado: string;
-  cep: string;
-  latitude: number | string;
-  longitude: number | string;
+  logradouro?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Anuncio {
@@ -16,51 +16,61 @@ export interface Anuncio {
   titulo: string;
   descricao: string;
   preco: number;
-  imageUrl: string;
+  tipo?: string;
   userId: string;
-  createdAt?: Date;
-  endereco: Endereco; // <-- Adicione esta linha
+  createdAt: string;
+  imageUrl?: string;
+  endereco?: Endereco;
 }
 
-// Functions now accept 'db' as an argument
-
 // criar novo anuncio
-export const createAnuncio = async (db: admin.firestore.Firestore, anuncioData: Omit<Anuncio, 'id' | 'createdAt'>, userId: string): Promise<Anuncio> => {
+export const createAnuncio = async (db: Firestore, anuncioData: Omit<Anuncio, 'id' | 'createdAt'>, userId: string): Promise<Anuncio> => {
   try {
-    const anunciosCollectionRef = db.collection("anuncio");
-    const newAnuncio: Anuncio = {
-      ...anuncioData,
-      userId: userId,
-      createdAt: new Date(),
-    };
-    const docRef = await anunciosCollectionRef.add(newAnuncio);
-    return { id: docRef.id, ...newAnuncio };
+    console.log('AnuncioController: Creating anuncio for user:', userId);
+    const novoAnuncio = { ...anuncioData, userId, createdAt: new Date().toISOString() };
+    const docRef = await db.collection("anuncio").add(novoAnuncio);
+    console.log('AnuncioController: Anuncio created with ID:', docRef.id);
+    return { id: docRef.id, ...novoAnuncio };
   } catch (error) {
     console.error("Error creating anuncio: ", error);
     throw error;
   }
 };
 
-
 // obter todos anuncios
-export const getAnuncios = async (db: admin.firestore.Firestore, searchQuery?: string): Promise<Anuncio[]> => {
+export const getAnuncios = async (db: Firestore, searchQuery?: string): Promise<Anuncio[]> => {
   try {
-    const anunciosCollectionRef = db.collection("anuncio");
-    const querySnapshot = await anunciosCollectionRef.orderBy("createdAt", "desc").get();
+    console.log('AnuncioController: Fetching anuncios, searchQuery:', searchQuery);
     
-    let anuncios = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data() as Omit<Anuncio, 'id'>
-    }));
-
+    let query = db.collection("anuncio").orderBy("createdAt", "desc");
+    
     if (searchQuery) {
-      const lowercasedQuery = searchQuery.toLowerCase();
-      anuncios = anuncios.filter(anuncio => 
-        anuncio.titulo.toLowerCase().includes(lowercasedQuery) ||
-        anuncio.descricao.toLowerCase().includes(lowercasedQuery)
-      );
+      console.log('AnuncioController: Applying search filter for:', searchQuery);
+      query = query.where("titulo", ">=", searchQuery).where("titulo", "<=", searchQuery + "\uf8ff");
     }
-
+    
+    const snap = await query.get();
+    console.log(`AnuncioController: Found ${snap.docs.length} anuncios in collection "anuncio"`);
+    
+    const anuncios = snap.docs.map(doc => {
+      const data = doc.data();
+      return { 
+        id: doc.id, 
+        ...data 
+      } as Anuncio;
+    });
+    
+    if (anuncios.length > 0) {
+      console.log('AnuncioController: First anuncio:', {
+        id: anuncios[0].id,
+        titulo: anuncios[0].titulo,
+        preco: anuncios[0].preco,
+        userId: anuncios[0].userId
+      });
+    } else {
+      console.warn('AnuncioController: No anuncios found in database');
+    }
+    
     return anuncios;
   } catch (error) {
     console.error("Error getting anuncios: ", error);
@@ -69,18 +79,19 @@ export const getAnuncios = async (db: admin.firestore.Firestore, searchQuery?: s
 };
 
 //obter anuncio especifico
-export const getAnuncioById = async (db: admin.firestore.Firestore, id: string): Promise<Anuncio | null> => {
+export const getAnuncioById = async (db: Firestore, id: string): Promise<Anuncio | null> => {
   try {
-    console.log("Attempting to fetch anuncio with ID:", id);
-    const docRef = db.collection("anuncio").doc(id);
-    const docSnap = await docRef.get();
-    if (docSnap.exists) {
-      console.log("Anuncio found!");
-      return { id: docSnap.id, ...docSnap.data() as Omit<Anuncio, 'id'> };
-    } else {
-      console.log("No such document in Firestore for ID:", id);
+    console.log('AnuncioController: Fetching anuncio by ID:', id);
+    const doc = await db.collection("anuncio").doc(id).get();
+    
+    if (!doc.exists) {
+      console.warn('AnuncioController: Anuncio not found for ID:', id);
       return null;
     }
+    
+    const anuncio = { id: doc.id, ...doc.data() } as Anuncio;
+    console.log('AnuncioController: Anuncio found:', anuncio.titulo);
+    return anuncio;
   } catch (error) {
     console.error("Error getting anuncio by ID: ", error);
     throw error;
@@ -88,20 +99,22 @@ export const getAnuncioById = async (db: admin.firestore.Firestore, id: string):
 };
 
 // atualizar anuncio
-export const updateAnuncio = async (db: admin.firestore.Firestore, id: string, updatedData: Partial<Omit<Anuncio, 'id' | 'userId' | 'createdAt'>>): Promise<void> => {
+export const updateAnuncio = async (db: Firestore, id: string, updatedData: Partial<Omit<Anuncio, 'id' | 'userId' | 'createdAt'>>): Promise<void> => {
   try {
-    const anuncioRef = db.collection("anuncio").doc(id);
-    await anuncioRef.update(updatedData);
+    console.log('AnuncioController: Updating anuncio:', id);
+    await db.collection("anuncio").doc(id).update(updatedData);
+    console.log('AnuncioController: Anuncio updated successfully');
   } catch (error) {
     console.error("Error updating anuncio: ", error);
     throw error;
   }
 };
 
-export const deleteAnuncio = async (db: admin.firestore.Firestore, id: string): Promise<void> => {
+export const deleteAnuncio = async (db: Firestore, id: string): Promise<void> => {
   try {
-    const anuncioRef = db.collection("anuncio").doc(id);
-    await anuncioRef.delete();
+    console.log('AnuncioController: Deleting anuncio:', id);
+    await db.collection("anuncio").doc(id).delete();
+    console.log('AnuncioController: Anuncio deleted successfully');
   } catch (error) {
     console.error("Error deleting anuncio: ", error);
     throw error;
@@ -109,14 +122,13 @@ export const deleteAnuncio = async (db: admin.firestore.Firestore, id: string): 
 };
 
 // obter anúncios de um usuário específico
-export const getAnunciosByUserId = async (db: admin.firestore.Firestore, userId: string): Promise<Anuncio[]> => {
+export const getAnunciosByUserId = async (db: Firestore, userId: string): Promise<Anuncio[]> => {
   try {
-    const anunciosCollectionRef = db.collection("anuncio");
-    const querySnapshot = await anunciosCollectionRef.where("userId", "==", userId).get();
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data() as Omit<Anuncio, 'id'>
-    }));
+    console.log('AnuncioController: Fetching anuncios for user:', userId);
+    const snap = await db.collection("anuncio").where("userId", "==", userId).get();
+    const anuncios = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Anuncio[];
+    console.log(`AnuncioController: Found ${anuncios.length} anuncios for user ${userId}`);
+    return anuncios;
   } catch (error) {
     console.error("Error getting anuncios by user ID: ", error);
     throw error;

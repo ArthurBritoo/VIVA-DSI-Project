@@ -1,8 +1,6 @@
 import * as admin from 'firebase-admin';
 import { Request, Response } from 'express';
 
-const db = admin.firestore();
-
 export interface Comentario {
   id?: string;
   anuncioId: string;
@@ -12,13 +10,14 @@ export interface Comentario {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
-const comentariosCol = (anuncioId: string) =>
-  db.collection('anuncio').doc(anuncioId).collection('comentarios'); // trocado para 'anuncio'
+const comentariosCol = (db: admin.firestore.Firestore, anuncioId: string) =>
+  db.collection('anuncio').doc(anuncioId).collection('comentarios');
 
 export const listComments = async (req: Request, res: Response) => {
   try {
+    const db = req.app.locals.db as admin.firestore.Firestore;
     const anuncioId = req.params.id;
-    const snap = await comentariosCol(anuncioId)
+    const snap = await comentariosCol(db, anuncioId)
       .orderBy('createdAt', 'asc')
       .get();
 
@@ -34,18 +33,18 @@ export const listComments = async (req: Request, res: Response) => {
 
 export const createComment = async (req: Request, res: Response) => {
   try {
+    const db = req.app.locals.db as admin.firestore.Firestore;
     const anuncioId = req.params.id;
     const { texto } = req.body;
     const userId = (req as any).user?.uid;
     if (!userId) return res.status(401).json({ error: 'Não autenticado' });
     if (!texto || !texto.trim()) return res.status(400).json({ error: 'Texto é obrigatório' });
 
-    // buscar dados do usuário (coleção users/{uid})
-    const userSnap = await admin.firestore().collection('users').doc(userId).get();
+    const userSnap = await db.collection('users').doc(userId).get();
     const userData = userSnap.exists ? userSnap.data() : {};
 
     const now = admin.firestore.Timestamp.now();
-    const ref = await comentariosCol(anuncioId).add({
+    const ref = await comentariosCol(db, anuncioId).add({
       anuncioId,
       userId,
       texto: texto.trim(),
@@ -64,12 +63,13 @@ export const createComment = async (req: Request, res: Response) => {
 
 export const updateComment = async (req: Request, res: Response) => {
   try {
+    const db = req.app.locals.db as admin.firestore.Firestore;
     const { id: anuncioId, comentarioId } = req.params;
     const { texto } = req.body;
     const userId = (req as any).user?.uid;
     if (!texto || !texto.trim()) return res.status(400).json({ error: 'Texto é obrigatório' });
 
-    const ref = comentariosCol(anuncioId).doc(comentarioId);
+    const ref = comentariosCol(db, anuncioId).doc(comentarioId);
     const snap = await ref.get();
     if (!snap.exists) return res.status(404).json({ error: 'Comentário não encontrado' });
     if (snap.data()?.userId !== userId) return res.status(403).json({ error: 'Sem permissão' });
@@ -87,9 +87,10 @@ export const updateComment = async (req: Request, res: Response) => {
 
 export const deleteComment = async (req: Request, res: Response) => {
   try {
+    const db = req.app.locals.db as admin.firestore.Firestore;
     const { id: anuncioId, comentarioId } = req.params;
     const userId = (req as any).user?.uid;
-    const ref = comentariosCol(anuncioId).doc(comentarioId);
+    const ref = comentariosCol(db, anuncioId).doc(comentarioId);
     const snap = await ref.get();
     if (!snap.exists) return res.status(404).json({ error: 'Comentário não encontrado' });
     if (snap.data()?.userId !== userId) return res.status(403).json({ error: 'Sem permissão' });
