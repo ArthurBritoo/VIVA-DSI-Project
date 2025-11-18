@@ -22,7 +22,7 @@ import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -80,6 +80,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formEstado, setFormEstado] = useState('');
   const [formBairro, setFormBairro] = useState('');
   const [formCep, setFormCep] = useState('');
+  const [formAreaConstruida, setFormAreaConstruida] = useState('');
+  const [formAreaTerreno, setFormAreaTerreno] = useState('');
+  const [formAnoConstrucao, setFormAnoConstrucao] = useState('');
+  const [formPadraoAcabamento, setFormPadraoAcabamento] = useState('');
+  const [formTipoImovel, setFormTipoImovel] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const { isFavorite, addFavorite, removeFavorite, updateFavorite } = useFavorites();
   const { addToRecentlyViewed } = useRecentlyViewed(); // <-- ADICIONE esta linha
@@ -144,6 +149,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         setFormEstado(fetchedAnuncio.endereco?.estado || '');
         setFormBairro(fetchedAnuncio.endereco?.bairro || '');
         setFormCep(fetchedAnuncio.endereco?.cep || '');
+        setFormAreaConstruida((fetchedAnuncio as any).area_construida?.toString() || '');
+        setFormAreaTerreno((fetchedAnuncio as any).area_terreno?.toString() || '');
+        setFormAnoConstrucao((fetchedAnuncio as any).ano_construcao?.toString() || '');
+        setFormPadraoAcabamento((fetchedAnuncio as any).padrao_acabamento || '');
+        setFormTipoImovel((fetchedAnuncio as any).tipo_imovel || '');
 
         if (fetchedAnuncio.endereco?.latitude && fetchedAnuncio.endereco?.longitude) {
           setCoords({
@@ -367,6 +377,12 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         preco: parseFloat(formPreco),
         imageUrl: finalImageUrl || '',
         userId: currentUser.uid,
+        // ⭐ NOVOS CAMPOS ML
+        area_construida: formAreaConstruida ? parseFloat(formAreaConstruida) : undefined,
+        area_terreno: formAreaTerreno ? parseFloat(formAreaTerreno) : undefined,
+        ano_construcao: formAnoConstrucao ? parseInt(formAnoConstrucao) : undefined,
+        padrao_acabamento: formPadraoAcabamento || undefined,
+        tipo_imovel: formTipoImovel || undefined,
         endereco: {
           logradouro: formEndereco,
           numero: formNumero,
@@ -759,6 +775,71 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                         onChangeText={setFormCep}
                         keyboardType="numeric"
                       />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Área Construída (m²)"
+                        value={formAreaConstruida}
+                        onChangeText={setFormAreaConstruida}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Área do Terreno (m²)"
+                        value={formAreaTerreno}
+                        onChangeText={setFormAreaTerreno}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Ano de Construção"
+                        value={formAnoConstrucao}
+                        onChangeText={setFormAnoConstrucao}
+                        keyboardType="numeric"
+                      />
+                      <View style={styles.pickerContainer}>
+                        <Text style={styles.pickerLabel}>Padrão de Acabamento:</Text>
+                        <View style={styles.radioGroup}>
+                          {['Simples', 'Médio', 'Alto', 'Premium'].map((opcao) => (
+                            <TouchableOpacity
+                              key={opcao}
+                              style={[
+                                styles.radioButton,
+                                formPadraoAcabamento === opcao && styles.radioButtonSelected
+                              ]}
+                              onPress={() => setFormPadraoAcabamento(opcao)}
+                            >
+                              <Text style={[
+                                styles.radioText,
+                                formPadraoAcabamento === opcao && styles.radioTextSelected
+                              ]}>
+                                {opcao}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                      <View style={styles.pickerContainer}>
+                        <Text style={styles.pickerLabel}>Tipo de Imóvel:</Text>
+                        <View style={styles.radioGroup}>
+                          {['Apartamento', 'Casa'].map((tipo) => (
+                            <TouchableOpacity
+                              key={tipo}
+                              style={[
+                                styles.radioButton,
+                                formTipoImovel === tipo && styles.radioButtonSelected
+                              ]}
+                              onPress={() => setFormTipoImovel(tipo)}
+                            >
+                              <Text style={[
+                                styles.radioText,
+                                formTipoImovel === tipo && styles.radioTextSelected
+                              ]}>
+                                {tipo}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
                     </>
                   ) : (
                     <>
@@ -768,6 +849,47 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                       <Text style={styles.descriptionText}>
                         {anuncio?.descricao || 'Sem descrição'}
                       </Text>
+                      {!isEditing && anuncio && (
+                        <View style={styles.mlDataSection}>
+                          <Text style={styles.sectionTitle}>Características do Imóvel</Text>
+                          {(anuncio as any).area_construida && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="floor-plan" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Área Construída: {(anuncio as any).area_construida} m²</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).area_terreno && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="texture-box" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Área do Terreno: {(anuncio as any).area_terreno} m²</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).ano_construcao && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="calendar" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Ano: {(anuncio as any).ano_construcao}</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).padrao_acabamento && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="star" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Padrão: {(anuncio as any).padrao_acabamento}</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).tipo_imovel && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="home" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Tipo: {(anuncio as any).tipo_imovel}</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).cluster !== undefined && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="chart-bubble" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Perfil ML: Cluster {(anuncio as any).cluster}</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
                     </>
                   )}
                 </View>
@@ -1239,5 +1361,55 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  pickerContainer: {
+    marginBottom: 15,
+  },
+  pickerLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  radioButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#fff',
+  },
+  radioButtonSelected: {
+    backgroundColor: '#137fec',
+    borderColor: '#137fec',
+  },
+  radioText: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  radioTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  mlDataSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  mlDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  mlDataText: {
+    fontSize: 15,
+    color: '#374151',
   },
 });
