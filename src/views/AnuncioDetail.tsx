@@ -5,7 +5,7 @@ import axios from 'axios'; // Import axios
 import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"; // <-- ADICIONE Linking
 import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from 'react-native-toast-message';
@@ -13,14 +13,16 @@ import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será
 import BottomNav from '../components/BottomNav';
 import FavoriteButton from '../components/FavoriteButton';
 import { useFavorites } from '../contexts/FavoritesContext';
+import { useRecentlyViewed } from '../contexts/RecentlyViewedContext'; // <-- ADICIONE esta linha
 import { Anuncio } from '../models/Anuncio';
 import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 import { RootStackParamList } from '../types/navigation';
+import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
 
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://1edc542864d1.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://48ee0bc3706a.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -37,10 +39,29 @@ interface Anunciante {
   telefone: string;
 }
 
+type Comentario = {
+  id: string;
+  anuncioId: string;
+  userId: string;
+  texto: string;
+  createdAt?: any;
+  updatedAt?: any;
+  userName?: string;
+  userPhoto?: string;
+};
+
+interface UserBasic {
+  uid: string;
+  nome?: string;
+  foto?: string;
+}
+
+
 
 // A função uploadImageToStorage será removida
 
 export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps) {
+  const [userCache, setUserCache] = useState<Record<string, UserBasic>>({});
   const { anuncioId } = route.params || {};
   const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
   const [anunciante, setAnunciante] = useState<Anunciante | null>(null);
@@ -59,8 +80,20 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formEstado, setFormEstado] = useState('');
   const [formBairro, setFormBairro] = useState('');
   const [formCep, setFormCep] = useState('');
+  const [formAreaConstruida, setFormAreaConstruida] = useState('');
+  const [formAreaTerreno, setFormAreaTerreno] = useState('');
+  const [formAnoConstrucao, setFormAnoConstrucao] = useState('');
+  const [formPadraoAcabamento, setFormPadraoAcabamento] = useState('');
+  const [formTipoImovel, setFormTipoImovel] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const { isFavorite, addFavorite, removeFavorite, updateFavorite } = useFavorites();
+  const { addToRecentlyViewed } = useRecentlyViewed(); // <-- ADICIONE esta linha
+  const [predictedLabel, setPredictedLabel] = useState<string | null>(null);
+  const [loadingLabel, setLoadingLabel] = useState(false);
+
+  const [comentarios, setComentarios] = useState<Comentario[]>([]);
+  const [comentarioTexto, setComentarioTexto] = useState('');
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -103,6 +136,10 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         const fetchedAnuncio = anuncioResponse.data;
         setAnuncio(fetchedAnuncio);
 
+        // ADICIONE ESTAS 2 LINHAS:
+        await addToRecentlyViewed(fetchedAnuncio);
+        console.log('AnuncioDetail: Added to recently viewed:', fetchedAnuncio.titulo);
+
         // Pre-fill forms
         setFormTitulo(fetchedAnuncio.titulo);
         setFormDescricao(fetchedAnuncio.descricao);
@@ -114,6 +151,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         setFormEstado(fetchedAnuncio.endereco?.estado || '');
         setFormBairro(fetchedAnuncio.endereco?.bairro || '');
         setFormCep(fetchedAnuncio.endereco?.cep || '');
+        setFormAreaConstruida((fetchedAnuncio as any).area_construida?.toString() || '');
+        setFormAreaTerreno((fetchedAnuncio as any).area_terreno?.toString() || '');
+        setFormAnoConstrucao((fetchedAnuncio as any).ano_construcao?.toString() || '');
+        setFormPadraoAcabamento((fetchedAnuncio as any).padrao_acabamento || '');
+        setFormTipoImovel((fetchedAnuncio as any).tipo_imovel || '');
 
         if (fetchedAnuncio.endereco?.latitude && fetchedAnuncio.endereco?.longitude) {
           setCoords({
@@ -130,6 +172,9 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setAnunciante(userResponse.data);
         }
 
+        // ADICIONE ISSO: Carregar comentários logo após carregar o anúncio
+        await fetchComentarios();
+
       } catch (error) {
         console.error("Error fetching data:", error);
         Toast.show({
@@ -144,7 +189,133 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     };
 
     loadData();
-  }, [anuncioId, idToken]);
+  }, [anuncioId, idToken]); // <-- MANTENHA APENAS ESSAS 2 DEPENDÊNCIAS
+
+  const headersAuth = idToken
+    ? { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+
+  // Adicione logs para depurar 404
+  useEffect(() => {
+    console.log('DEBUG anuncioId:', anuncioId);
+  }, [anuncioId]);
+
+  const fetchUserForComment = async (uid: string) => {
+    if (userCache[uid]) return userCache[uid];
+    try {
+      const { data } = await axios.get<UserBasic>(`${BASE_URL}/users/${uid}`, idToken ? { headers: { Authorization: `Bearer ${idToken}` } } : undefined);
+      const userData: UserBasic = { uid, nome: (data as any).nome, foto: (data as any).foto };
+      setUserCache(prev => ({ ...prev, [uid]: userData }));
+      return userData;
+    } catch {
+      return { uid };
+    }
+  };
+
+  const enrichComentarios = async (lista: Comentario[]) => {
+    const enriched = await Promise.all(
+      lista.map(async c => {
+        const u = await fetchUserForComment(c.userId);
+        return { ...c, userName: u.nome || 'Usuário', userPhoto: u.foto };
+      })
+    );
+    setComentarios(enriched);
+  };
+
+  const fetchPredictedLabel = async () => {
+    if (!formAreaConstruida || !formAreaTerreno || !formAnoConstrucao || !formPadraoAcabamento || !formTipoImovel || !formBairro || !coords) {
+      Alert.alert('Dados incompletos', 'Preencha todas as informações do imóvel.');
+      return;
+    }
+  
+    setLoadingLabel(true);
+    setPredictedLabel(null);
+  
+    try {
+      const response = await axios.post(
+        'https://pisi3-project.onrender.com/predict', // URL da sua API
+        {
+          area_construida: parseFloat(formAreaConstruida),
+          area_terreno: parseFloat(formAreaTerreno),
+          ano_construcao: parseInt(formAnoConstrucao),
+          padrao_acabamento: formPadraoAcabamento,
+          cluster: 0, // se você tiver o cluster no backend, coloque aqui
+          bairro: formBairro,
+          tipo_imovel: formTipoImovel
+        },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+  
+      setPredictedLabel(response.data.predicted_category);
+    } catch (error) {
+      console.error('Erro ao obter rótulo:', error);
+      Alert.alert('Erro', 'Não foi possível gerar o rótulo.');
+    } finally {
+      setLoadingLabel(false);
+    }
+  };
+  
+
+  const fetchComentarios = async () => {
+    if (!anuncioId) return;
+    const url = `${BASE_URL}/anuncios/${anuncioId}/comentarios`;
+    console.log('URL comentários:', url);
+    try {
+      const { data } = await axios.get<Comentario[]>(url);
+      await enrichComentarios(data); // <-- JÁ ESTAVA CHAMANDO, MAS VAMOS GARANTIR
+    } catch (e: any) {
+      console.log('Erro ao listar comentários:', e?.response?.status, e?.response?.data || e.message);
+      setComentarios([]); // <-- ADICIONE ISSO para limpar em caso de erro
+    }
+  };
+
+  const criarComentario = async () => {
+    if (!comentarioTexto.trim()) return;
+    try {
+      await axios.post(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios`,
+        { texto: comentarioTexto.trim() },
+        { headers: headersAuth }
+      );
+      setComentarioTexto('');
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao criar comentário:', e);
+    }
+  };
+
+  const iniciarEdicao = (c: Comentario) => {
+    setEditandoId(c.id);
+    setComentarioTexto(c.texto);
+  };
+
+  const salvarEdicao = async () => {
+    if (!editandoId) return;
+    try {
+      await axios.put(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios/${editandoId}`,
+        { texto: comentarioTexto.trim() },
+        { headers: headersAuth }
+      );
+      setEditandoId(null);
+      setComentarioTexto('');
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao atualizar comentário:', e);
+    }
+  };
+
+  const excluirComentario = async (id: string) => {
+    try {
+      await axios.delete(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios/${id}`,
+        { headers: headersAuth }
+      );
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao excluir comentário:', e);
+    }
+  };
 
   const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
 
@@ -242,6 +413,12 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         preco: parseFloat(formPreco),
         imageUrl: finalImageUrl || '',
         userId: currentUser.uid,
+        // ⭐ NOVOS CAMPOS ML
+        area_construida: formAreaConstruida ? parseFloat(formAreaConstruida) : undefined,
+        area_terreno: formAreaTerreno ? parseFloat(formAreaTerreno) : undefined,
+        ano_construcao: formAnoConstrucao ? parseInt(formAnoConstrucao) : undefined,
+        padrao_acabamento: formPadraoAcabamento || undefined,
+        tipo_imovel: formTipoImovel || undefined,
         endereco: {
           logradouro: formEndereco,
           numero: formNumero,
@@ -387,6 +564,82 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     if (isEditing) fetchCoords();
   }, [formEndereco, formNumero, formCidade, formEstado, isEditing]);
 
+  const handleContact = () => {
+    if (!anunciante?.telefone) {
+      Alert.alert('Erro', 'Telefone do anunciante não disponível.');
+      return;
+    }
+
+    const phoneNumber = anunciante.telefone.replace(/\D/g, '');
+
+    Alert.alert(
+      'Contactar Anunciante',
+      `Como deseja entrar em contato com ${anunciante.nome}?`,
+      [
+        {
+          text: 'WhatsApp',
+          onPress: async () => {
+            const message = encodeURIComponent(`Olá, vi seu anúncio "${anuncio?.titulo}" e gostaria de mais informações.`);
+            
+            const whatsappUrls = [
+              `whatsapp://send?phone=55${phoneNumber}&text=${message}`,
+              `https://wa.me/55${phoneNumber}?text=${message}`,
+              `https://api.whatsapp.com/send?phone=55${phoneNumber}&text=${message}`,
+            ];
+
+            let opened = false;
+            for (const url of whatsappUrls) {
+              try {
+                const canOpen = await Linking.canOpenURL(url);
+                if (canOpen) {
+                  await Linking.openURL(url);
+                  opened = true;
+                  break;
+                }
+              } catch (err) {
+                console.log(`Falhou com URL: ${url}`, err);
+              }
+            }
+
+            if (!opened) {
+              Alert.alert(
+                'WhatsApp não encontrado',
+                'Deseja abrir no navegador?',
+                [
+                  { text: 'Sim', onPress: () => Linking.openURL(`https://web.whatsapp.com/send?phone=55${phoneNumber}&text=${message}`) },
+                  { text: 'Não', style: 'cancel' },
+                ]
+              );
+            }
+          },
+        },
+        {
+          text: 'Ligar',
+          onPress: () => {
+            Linking.openURL(`tel:${phoneNumber}`).catch(err => 
+              Alert.alert('Erro', 'Não foi possível abrir o discador.')
+            );
+          },
+        },
+        {
+          text: 'Copiar Número',
+          onPress: async () => {
+            await Clipboard.setStringAsync(phoneNumber); // <-- API do Expo
+            Toast.show({
+              type: 'success',
+              text1: 'Número Copiado! 📋',
+              text2: phoneNumber,
+            });
+          },
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -452,174 +705,367 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         {isEditing && <View style={styles.headerButton} /> }
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.imageGallery}>
-          {isEditing ? (
-            <TouchableOpacity onPress={handlePickImage} style={styles.imagePickerContainer}>
-              {formImageUrl ? (
-                <Image source={{ uri: formImageUrl }} style={styles.mainImage} />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <MaterialCommunityIcons name="camera-plus" size={50} color="#ccc" />
-                  <Text style={styles.imagePlaceholderText}>Adicionar Imagem</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <Image source={{ uri: anuncio?.imageUrl || "https://via.placeholder.com/400x300?text=Sem+Imagem" }} style={styles.mainImage} />
-          )}
-          
-          {!isEditing && (
-            <View style={styles.paginationContainer}>
-              <View style={styles.paginationDotActive}></View>
-              <View style={styles.paginationDot}></View>
-              <View style={styles.paginationDot}></View>
-              <View style={styles.paginationDot}></View>
-              <View style={styles.paginationDot}></View>
-            </View>
-          )}
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007bff" />
+          <Text style={styles.loadingText}>
+            {!currentUser && anuncioId ? "Aguardando autenticação..." : "Carregando..."}
+          </Text>
         </View>
+      )}
 
-        <View style={styles.contentPadding}>
-          <View style={styles.infoCard}>
-            {isEditing ? (
-              <>
-                <TextInput
-                  style={[styles.input, styles.priceInput]}
-                  placeholder="Preço"
-                  value={formPreco}
-                  onChangeText={setFormPreco}
-                  keyboardType="numeric"
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Título"
-                  value={formTitulo}
-                  onChangeText={setFormTitulo}
-                />
-                <TextInput
-                  style={[styles.input, styles.descriptionInput]}
-                  placeholder="Descrição"
-                  value={formDescricao}
-                  onChangeText={setFormDescricao}
-                  multiline
-                  numberOfLines={4}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Endereço"
-                  value={formEndereco}
-                  onChangeText={setFormEndereco}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Número"
-                  value={formNumero}
-                  onChangeText={setFormNumero}
-                  keyboardType="numeric"
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Cidade"
-                  value={formCidade}
-                  onChangeText={setFormCidade}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Estado"
-                  value={formEstado}
-                  onChangeText={setFormEstado}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Bairro"
-                  value={formBairro}
-                  onChangeText={setFormBairro}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="CEP"
-                  value={formCep}
-                  onChangeText={setFormCep}
-                  keyboardType="numeric"
-                />
-              </>
-            ) : (
-              <>
-                <Text style={styles.priceText}>R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : ''}</Text>
-                <Text style={styles.descriptionText}>{anuncio?.descricao}</Text>
-              </>
-            )}
-          </View>
+      {!loading && (
+        <FlatList
+          data={comentarios}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <View>
+              <View style={styles.imageGallery}>
+                {isEditing ? (
+                  <TouchableOpacity onPress={handlePickImage} style={styles.imagePickerContainer}>
+                    {formImageUrl ? (
+                      <Image source={{ uri: formImageUrl }} style={styles.mainImage} />
+                    ) : (
+                      <View style={styles.imagePlaceholder}>
+                        <MaterialCommunityIcons name="camera-plus" size={50} color="#ccc" />
+                        <Text style={styles.imagePlaceholderText}>Adicionar Imagem</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <Image
+                    source={{ uri: anuncio?.imageUrl || "https://via.placeholder.com/400x300?text=Sem+Imagem" }}
+                    style={styles.mainImage}
+                  />
+                )}
+                {!isEditing && (
+                  <View style={styles.paginationContainer}>
+                    <View style={styles.paginationDotActive}></View>
+                    <View style={styles.paginationDot}></View>
+                    <View style={styles.paginationDot}></View>
+                    <View style={styles.paginationDot}></View>
+                    <View style={styles.paginationDot}></View>
+                  </View>
+                )}
+              </View>
 
-          {anunciante && !isEditing && (
-            <View style={styles.anuncianteCard}>
-              <Text style={styles.sectionTitle}>Anunciante</Text>
-              <View style={styles.anuncianteInfo}>
-                <Image source={{ uri: anunciante.foto || 'https://via.placeholder.com/150' }} style={styles.anuncianteAvatar} />
-                <View style={styles.anuncianteTextContainer}>
-                  <Text style={styles.anuncianteName}>{anunciante.nome}</Text>
-                  <Text style={styles.anuncianteContato}>{anunciante.telefone}</Text>
+              <View style={styles.contentPadding}>
+                <View style={styles.infoCard}>
+                  {isEditing ? (
+                    <>
+                      <TextInput
+                        style={[styles.input, styles.priceInput]}
+                        placeholder="Preço"
+                        value={formPreco}
+                        onChangeText={setFormPreco}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Título"
+                        value={formTitulo}
+                        onChangeText={setFormTitulo}
+                      />
+                      <TextInput
+                        style={[styles.input, styles.descriptionInput]}
+                        placeholder="Descrição"
+                        value={formDescricao}
+                        onChangeText={setFormDescricao}
+                        multiline
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Endereço"
+                        value={formEndereco}
+                        onChangeText={setFormEndereco}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Número"
+                        value={formNumero}
+                        onChangeText={setFormNumero}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Cidade"
+                        value={formCidade}
+                        onChangeText={setFormCidade}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Estado"
+                        value={formEstado}
+                        onChangeText={setFormEstado}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Bairro"
+                        value={formBairro}
+                        onChangeText={setFormBairro}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="CEP"
+                        value={formCep}
+                        onChangeText={setFormCep}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Área Construída (m²)"
+                        value={formAreaConstruida}
+                        onChangeText={setFormAreaConstruida}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Área do Terreno (m²)"
+                        value={formAreaTerreno}
+                        onChangeText={setFormAreaTerreno}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Ano de Construção"
+                        value={formAnoConstrucao}
+                        onChangeText={setFormAnoConstrucao}
+                        keyboardType="numeric"
+                      />
+                      <View style={styles.pickerContainer}>
+                        <Text style={styles.pickerLabel}>Padrão de Acabamento:</Text>
+                        <View style={styles.radioGroup}>
+                          {['Simples', 'Médio', 'Alto', 'Premium'].map((opcao) => (
+                            <TouchableOpacity
+                              key={opcao}
+                              style={[
+                                styles.radioButton,
+                                formPadraoAcabamento === opcao && styles.radioButtonSelected
+                              ]}
+                              onPress={() => setFormPadraoAcabamento(opcao)}
+                            >
+                              <Text style={[
+                                styles.radioText,
+                                formPadraoAcabamento === opcao && styles.radioTextSelected
+                              ]}>
+                                {opcao}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                      <View style={styles.pickerContainer}>
+                        <Text style={styles.pickerLabel}>Tipo de Imóvel:</Text>
+                        <View style={styles.radioGroup}>
+                          {['Apartamento', 'Casa'].map((tipo) => (
+                            <TouchableOpacity
+                              key={tipo}
+                              style={[
+                                styles.radioButton,
+                                formTipoImovel === tipo && styles.radioButtonSelected
+                              ]}
+                              onPress={() => setFormTipoImovel(tipo)}
+                            >
+                              <Text style={[
+                                styles.radioText,
+                                formTipoImovel === tipo && styles.radioTextSelected
+                              ]}>
+                                {tipo}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.priceText}>
+                        R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : '0'}
+                      </Text>
+                      <Text style={styles.descriptionText}>
+                        {anuncio?.descricao || 'Sem descrição'}
+                      </Text>
+                      {!isEditing && anuncio && (
+                        <View style={styles.mlDataSection}>
+                          <Text style={styles.sectionTitle}>Características do Imóvel</Text>
+                          {(anuncio as any).area_construida && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="floor-plan" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Área Construída: {(anuncio as any).area_construida} m²</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).area_terreno && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="texture-box" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Área do Terreno: {(anuncio as any).area_terreno} m²</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).ano_construcao && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="calendar" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Ano: {(anuncio as any).ano_construcao}</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).padrao_acabamento && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="star" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Padrão: {(anuncio as any).padrao_acabamento}</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).tipo_imovel && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="home" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Tipo: {(anuncio as any).tipo_imovel}</Text>
+                            </View>
+                          )}
+                          {(anuncio as any).cluster !== undefined && (
+                            <View style={styles.mlDataRow}>
+                              <MaterialCommunityIcons name="chart-bubble" size={20} color="#137fec" />
+                              <Text style={styles.mlDataText}>Perfil ML: Cluster {(anuncio as any).cluster}</Text>
+                            </View>
+                          )}
+
+                            <TouchableOpacity
+                              style={styles.predictButton}
+                              onPress={fetchPredictedLabel}
+                              disabled={loadingLabel}
+                            >
+                              <Text style={styles.predictButtonText}>
+                                {loadingLabel ? 'Gerando rótulo...' : 'Gerar rótulo do anúncio'}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {predictedLabel && (
+                              <Text style={styles.predictedLabel}>
+                                Rótulo do anúncio: <Text style={{ fontWeight: 'bold', color: 'green' }}>{predictedLabel}</Text>
+                              </Text>
+                            )}
+
+                        </View>
+                      )}
+                    </>
+                  )}
                 </View>
-                <TouchableOpacity style={styles.contactButton}>
-                  <Text style={styles.contactButtonText}>Contactar</Text>
-                </TouchableOpacity>
+
+                {anunciante && !isEditing && (
+                  <View style={styles.anuncianteCard}>
+                    <Text style={styles.sectionTitle}>Anunciante</Text>
+                    <View style={styles.anuncianteInfo}>
+                      <Image
+                        source={{ uri: anunciante.foto || 'https://via.placeholder.com/150' }}
+                        style={styles.anuncianteAvatar}
+                      />
+                      <View style={styles.anuncianteTextContainer}>
+                        <Text style={styles.anuncianteName}>{anunciante.nome}</Text>
+                        <Text style={styles.anuncianteContato}>{anunciante.telefone}</Text>
+                      </View>
+                      <TouchableOpacity style={styles.contactButton} onPress={handleContact}>
+                        <Text style={styles.contactButtonText}>Contactar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.locationCard}>
+                  <Text style={styles.locationTitle}>Localização</Text>
+                  {!isEditing && anuncio?.endereco && (
+                    <Text style={styles.addressText}>
+                      {`${anuncio.endereco.logradouro}, ${anuncio.endereco.numero} - ${anuncio.endereco.bairro}, ${anuncio.endereco.cidade} - ${anuncio.endereco.estado}, ${anuncio.endereco.cep}`}
+                    </Text>
+                  )}
+                  <View style={styles.mapContainer}>
+                    {coords ? (
+                      <MapView
+                        style={styles.mapImage}
+                        initialRegion={{
+                          latitude: coords.latitude,
+                          longitude: coords.longitude,
+                          latitudeDelta: 0.01,
+                          longitudeDelta: 0.01,
+                        }}
+                      >
+                        <Marker coordinate={coords} />
+                      </MapView>
+                    ) : (
+                      <Text style={styles.noMapText}>Mapa não disponível</Text>
+                    )}
+                  </View>
+                </View>
+
+                <Text style={styles.sectionTitle}>Comentários</Text>
               </View>
             </View>
-          )}
-
-          <View style={styles.locationCard}>
-            <Text style={styles.locationTitle}>Localização</Text>
-            {!isEditing && anuncio?.endereco && (
-              <Text style={styles.addressText}>
-                {`${anuncio.endereco.logradouro}, ${anuncio.endereco.numero} - ${anuncio.endereco.bairro}, ${anuncio.endereco.cidade} - ${anuncio.endereco.estado}, ${anuncio.endereco.cep}`}
-              </Text>
-            )}
-            <View style={styles.mapContainer}>
-              {coords ? (
-                <MapView
-                  style={styles.mapImage}
-                  initialRegion={{
-                    latitude: coords.latitude,
-                    longitude: coords.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }}
-                >
-                  <Marker coordinate={coords} />
-                </MapView>
-              ) : (
-                <Text>Mapa não disponível</Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.commentItem}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Image
+                  source={{ uri: item.userPhoto || 'https://via.placeholder.com/40' }}
+                  style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '600' }}>{item.userName || 'Usuário'}</Text>
+                  <Text style={styles.commentText}>{item.texto}</Text>
+                </View>
+                {item.userId === currentUser?.uid && (
+                  <TouchableOpacity onPress={() => iniciarEdicao(item)} style={{ padding: 4 }}>
+                    <MaterialCommunityIcons name="dots-vertical" size={22} color="#555" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {item.userId === currentUser?.uid && editandoId === item.id && (
+                <View style={styles.commentActions}>
+                  <TouchableOpacity onPress={() => salvarEdicao()}>
+                    <Text style={styles.editBtn}>Salvar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => excluirComentario(item.id)}>
+                    <Text style={styles.deleteBtn}>Excluir</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setEditandoId(null); setComentarioTexto(''); }}>
+                    <Text style={{ color: '#666' }}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
-          </View>
-        </View>
+          )}
+          ListFooterComponent={
+            <View style={{ paddingHorizontal: 16, paddingBottom: 120 }}>
+              <View style={styles.commentForm}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder={editandoId ? 'Editar comentário...' : 'Escreva um comentário...'}
+                  value={comentarioTexto}
+                  onChangeText={setComentarioTexto}
+                />
+                <TouchableOpacity
+                  style={styles.commentSend}
+                  onPress={editandoId ? salvarEdicao : criarComentario}
+                  disabled={!comentarioTexto.trim()}
+                >
+                  <Text style={{ color: 'white' }}>{editandoId ? 'Salvar' : 'Enviar'}</Text>
+                </TouchableOpacity>
+              </View>
 
-        {isEditing && (
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
-              <Text style={styles.buttonText}>Salvar Anúncio</Text>
-            </TouchableOpacity>
-            {isOwner && anuncioId && (
-              <TouchableOpacity onPress={handleDelete} style={[styles.button, styles.deleteButton]}>
-                <Text style={styles.buttonText}>Deletar Anúncio</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={handleCancelEdit} style={[styles.button, styles.cancelButton]}>
-              <Text style={styles.buttonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        {!anuncioId && !isEditing && (
-          <View style={styles.noAnuncioContainer}>
-            <Text style={styles.noAnuncioText}>Nenhum anúncio para exibir. Comece a criar um!</Text>
-            <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.button}>
-              <Text style={styles.buttonText}>Criar Novo Anúncio</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
+              {isEditing && (
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
+                    <Text style={styles.buttonText}>Salvar Anúncio</Text>
+                  </TouchableOpacity>
+                  {isOwner && anuncioId && (
+                    <TouchableOpacity onPress={handleDelete} style={[styles.button, styles.deleteButton]}>
+                      <Text style={styles.buttonText}>Deletar Anúncio</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={handleCancelEdit} style={[styles.button, styles.cancelButton]}>
+                    <Text style={styles.buttonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          }
+          contentContainerStyle={{ paddingBottom: 40 }}
+        />
+      )}
 
       {isOwner && anuncioId && !isEditing && (
         <TouchableOpacity style={styles.fab} onPress={() => setIsEditing(true)}>
@@ -627,7 +1073,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         </TouchableOpacity>
       )}
 
-      <BottomNav/>
+      <BottomNav />
       <Toast />
     </SafeAreaView>
   );
@@ -793,42 +1239,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16, 
     color: "#374151", 
-  },
-  anuncianteCard: {
-    marginTop: 16,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
-  },
-  anuncianteInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  anuncianteAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  anuncianteTextContainer: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  anuncianteName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  anuncianteContato: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  contactButton: {
-    backgroundColor: '#137fec',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -944,26 +1354,132 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+  sectionTitle: { fontSize: 16, fontWeight: "600", marginTop: 24 },
+  commentItem: { paddingVertical: 12, borderBottomWidth: 1, borderColor: "#eee" },
+  commentText: { color: "#333" },
+  commentActions: { flexDirection: "row", gap: 16, marginTop: 6 },
+  editBtn: { color: "#007AFF" },
+  deleteBtn: { color: "#FF3B30" },
+  commentForm: { flexDirection: "row", marginTop: 16, alignItems: "center" },
+  commentInput: { flex: 1, borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10 },
+  commentSend: { 
+    marginLeft: 8, 
+    backgroundColor: "#007AFF", 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    borderRadius: 8 
   },
-  featuresEditContainer: {
-    marginBottom: 15,
+  anuncianteCard: {
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
-  newFeatureInputContainer: {
+  anuncianteInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginTop: 12,
   },
-  newFeatureInput: {
+  anuncianteAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  anuncianteTextContainer: {
     flex: 1,
-    marginBottom: 0, 
-    marginRight: 10,
   },
-  addFeatureButton: {
-    padding: 8,
+  anuncianteName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  anuncianteContato: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  contactButton: {
+    backgroundColor: '#137fec',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  noMapText: { // <-- ADICIONE este estilo
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  pickerContainer: {
+    marginBottom: 15,
+  },
+  pickerLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  radioButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#fff',
+  },
+  radioButtonSelected: {
+    backgroundColor: '#137fec',
+    borderColor: '#137fec',
+  },
+  radioText: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  radioTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  mlDataSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  mlDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  mlDataText: {
+    fontSize: 15,
+    color: '#374151',
+  },
+
+  predictButton: {
+    backgroundColor: '#007bff',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: 'center'
+  },
+  predictButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  predictedLabel: {
+    marginTop: 15,
+    fontSize: 16
   }
 });

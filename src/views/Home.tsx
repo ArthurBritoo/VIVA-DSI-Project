@@ -1,6 +1,6 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   Image,
@@ -14,129 +14,27 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth } from "../assets/firebaseConfig";
 import BottomNav from "../components/BottomNav";
-import Header from "../components/Header";
-import { RootStackParamList } from "../types/navigation";
-import { useFavorites } from '../contexts/FavoritesContext';
 import FavoriteButton from '../components/FavoriteButton';
-
-
-import { Anuncio } from '../models/Anuncio';
-
+import Header from "../components/Header";
+import { useFavorites } from '../contexts/FavoritesContext';
+import { useRecentlyViewed } from '../contexts/RecentlyViewedContext'; // <-- NOVO
+import { RootStackParamList } from "../types/navigation";
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-const savedProperties = [
-  {
-    id: "1",
-    featured: true,
-    title: "Apartmento de Luxo com Vista para a Cidade",
-    details: "3 quartos · 1 suíte · 2 banheiros · 165m²",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAC2N2JwiUvCl_ti9LPXZWLUqcX9jW-emlV40cIctx75XHefGGD8KiA9chy5rGIzdC0uX_2kKh845TCf2w0Kq4YpTO_MU_PUpmKPRjVN165sEq9DhTZ9O4uRKa9Fd_g_oOChiYHiR4dUB8TPrQm8dEYFf0u6btlexobLoOC2pbT_-5Ct8APPTj0MVa09xfc5ulWsGnZh4Z0FBMn1toE7xf601DXLKqoll9tmFMf_EJ--G5KxpHdfjQo4uAkSLwQ1c0caNXdofq21xs",
-  },
-  {
-    id: "2",
-    featured: false,
-    title: "Casa Aconchegante em Bairro Tranquilo",
-    details: "3 quartos · 2 banheiros · 102 m²",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAAZzRxWRTDHYYO-NnT9Tbz4hfaNQKyg7Nh4MNd1UlfZDj3iCUUQy4_jfetdjaV1NLpjiZpj5u49RDoPw-3aYLTTiEbTUAVKMsJzquodc8dnuUY8yttVWJQpnVavdOWvUUG9sl5cpQnln8ojgF6x0tFlGbnCRF9lgZU_cvL_4mvWfX17dzde0IR-mR9cHSX_DVTL1pFRCp7qPrjKlsLpnLWUl3WHfQtzKcPQa6_kICmTk_Vtls7eCNlcgFzhMCThRiX5X8iIzl1XJ8",
-  },
-];
-
 export default function App() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const [recentlyViewed, setRecentlyViewed] = useState<Anuncio[]>([]);
-  const [idToken, setIdToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
-  const { favorites, isFavorite } = useFavorites();
+  const { favorites } = useFavorites();
+  const { recentlyViewed } = useRecentlyViewed(); // <-- NOVO
 
-  // 🔹 Atualiza token de autenticação quando o usuário muda
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user)  => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
-
-      if (!user) {
-        setIdToken(null);
-        return;
-      }
-
-      try {
-        const token = await user.getIdToken(true); // força refresh
-        setIdToken(token);
-      } catch (error) {
-        console.error("Erro ao obter ID token:", error);
-        setIdToken(null);
-      }
     });
-
     return unsubscribe;
   }, []);
 
-  // 🔹 Função de busca dos anúncios
-  const fetchAnuncios = useCallback(async () => {
-    if (!idToken) {
-      console.log("IdToken não disponível, pulando chamada de API.");
-      return;
-    }
-
-    try {
-      const response = await fetch("https://1edc542864d1.ngrok-free.app/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-      });
-
-      console.log("Status da resposta da API:", response.status);
-      const data = await response.json();
-      console.log("Dados recebidos da API:", data);
-
-      let anunciosToProcess: any[] = [];
-
-      if (Array.isArray(data)) {
-        anunciosToProcess = data;
-      } else if (data && Array.isArray(data.anuncios)) {
-        anunciosToProcess = data.anuncios;
-      } else {
-        console.warn("Resposta inesperada da API:", data);
-        setRecentlyViewed([]);
-        return;
-      }
-
-      const anunciosList: Anuncio[] = anunciosToProcess.map((anuncio: any) => ({
-        id: anuncio.id,
-        titulo: anuncio.titulo,
-        preco: anuncio.preco || 0,
-        imageUrl: anuncio.imageUrl,
-        descricao: anuncio.descricao || '',
-        userId: anuncio.userId || '',
-      }));
-
-      setRecentlyViewed(anunciosList);
-    } catch (error) {
-      console.error("Erro ao buscar anúncios:", error);
-      setRecentlyViewed([]);
-    }
-  }, [idToken]);
-
-  // 🔹 Busca inicial quando o token é carregado
-  useEffect(() => {
-    if (idToken) {
-      fetchAnuncios();
-    }
-  }, [idToken, fetchAnuncios]);
-
-  // 🔹 Atualiza anúncios sempre que a tela volta ao foco
-  useFocusEffect(
-    useCallback(() => {
-      if (idToken) {
-        console.log("Tela em foco — atualizando anúncios.");
-        fetchAnuncios();
-      }
-    }, [idToken, fetchAnuncios])
-  );
-
-  // 🔹 Navegação entre telas
   const handlePress = (tabName: keyof RootStackParamList, anuncioId?: string) => {
     if (tabName === "AnuncioDetail") {
       navigation.navigate("AnuncioDetail", { anuncioId });
@@ -145,10 +43,8 @@ export default function App() {
     }
   };
 
-  
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <Header title="Home" onMenuPress={() => {}} />
 
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
@@ -156,14 +52,15 @@ export default function App() {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by city, neighborhood, address"
+            placeholder="Buscar por cidade, bairro, endereço..."
             placeholderTextColor="#9ca3af"
+            onFocus={() => navigation.navigate('Buscar')}
           />
         </View>
 
         {/* Filters */}
         <View style={styles.filterRow}>
-          {["Price", "Location", "Property Type"].map((f, idx) => (
+          {["Preço", "Localização", "Tipo"].map((f, idx) => (
             <TouchableOpacity
               key={idx}
               style={[styles.filterButton, idx === 0 && styles.filterActive]}
@@ -180,26 +77,29 @@ export default function App() {
           ))}
         </View>
 
-
         {/* Recently Viewed */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Vistos Recentemente</Text>
-          <FlatList
-            data={recentlyViewed}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id!}
-            renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
-                <FavoriteButton anuncio={item} style={styles.favoriteIcon} />
-                <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                  {item.titulo}
-                </Text>
-                <Text style={styles.cardPrice}>R$ {item.preco.toLocaleString('pt-BR')}</Text>
-              </TouchableOpacity>
-            )}
-          />
+          {recentlyViewed.length > 0 ? (
+            <FlatList
+              data={recentlyViewed}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id!}
+              renderItem={({ item }) => (
+                <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
+                  <FavoriteButton anuncio={item} style={styles.favoriteIcon} />
+                  <Image source={{ uri: item.imageUrl || 'https://via.placeholder.com/160x180' }} style={styles.cardImage} />
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.titulo}
+                  </Text>
+                  <Text style={styles.cardPrice}>R$ {item.preco?.toLocaleString('pt-BR') || '0'}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          ) : (
+            <Text style={styles.emptyText}>Nenhum anúncio visualizado recentemente.</Text>
+          )}
         </View>
 
         {/* Saved Properties */}
@@ -213,11 +113,11 @@ export default function App() {
               keyExtractor={(item) => item.id!}
               renderItem={({ item }) => (
                 <TouchableOpacity onPress={() => handlePress('AnuncioDetail', item.id)} style={styles.card}>
-                  <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
+                  <Image source={{ uri: item.imageUrl || 'https://via.placeholder.com/160x180' }} style={styles.cardImage} />
                   <Text style={styles.cardTitle} numberOfLines={1}>
                     {item.titulo}
                   </Text>
-                  <Text style={styles.cardPrice}>R$ {item.preco.toLocaleString('pt-BR')}</Text>
+                  <Text style={styles.cardPrice}>R$ {item.preco?.toLocaleString('pt-BR') || '0'}</Text>
                 </TouchableOpacity>
               )}
             />
@@ -228,20 +128,17 @@ export default function App() {
       </ScrollView>
 
       {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} onPress={() =>  handlePress('AnuncioDetail')}>
+      <TouchableOpacity style={styles.fab} onPress={() => handlePress('AnuncioDetail')}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* Bottom Nav */}
-      <BottomNav/>
+      <BottomNav />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f6f7f8" },
-  
-
   searchContainer: { padding: 16 },
   searchInput: {
     backgroundColor: "#e5e7eb",
@@ -262,30 +159,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
   },
-
-  fab: {
-    position: 'absolute',
-    width: 70,
-    height: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-    right: 20,
-    bottom: 135, // Adjust to be above the BottomNav
-    backgroundColor: '#137fec',
-    borderRadius: 40,
-    elevation: 8, // for Android shadow
-    shadowColor: '#000', // for iOS shadow
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  fabText: {
-    fontSize: 30,
-    color: 'white',
-    fontWeight: 'bold',
-    lineHeight: 60, // Added to center the '+' vertically
-  },
-
   filterActive: { backgroundColor: "#dbeafe" },
   filterText: { fontSize: 14, color: "#111" },
   section: { padding: 16 },
@@ -307,28 +180,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
   },
-  savedCard: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-    alignItems: "center",
+  fab: {
+    position: 'absolute',
+    width: 70,
+    height: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 20,
+    bottom: 135,
+    backgroundColor: '#137fec',
+    borderRadius: 40,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
-  featuredText: { fontSize: 12, fontWeight: "600", color: "#137fec" },
-  savedTitle: { fontSize: 14, fontWeight: "bold" },
-  savedDetails: { fontSize: 12, color: "#6b7280" },
-  savedImage: { width: 100, height: 80, borderRadius: 8 },
-  navbar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderColor: "#e5e7eb",
-    height: 64,
-    backgroundColor: "#f6f7f8",
+  fabText: {
+    fontSize: 30,
+    color: 'white',
+    fontWeight: 'bold',
   },
-  navItem: { alignItems: "center" },
-  navIcon: { fontSize: 20, color: "#6b7280" },
-  navLabel: { fontSize: 12, color: "#6b7280" },
 });
