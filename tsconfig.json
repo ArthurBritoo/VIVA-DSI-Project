@@ -4,8 +4,6 @@
     "strict": true,
     "jsx": "react-native",
     "module": "esnext",
-    "paths": {
-      "@firebase/auth": ["./node_modules/@firebase/auth/dist/index.rn.d.ts"]
-    }
+    "moduleResolution": "bundler"
   }
 }

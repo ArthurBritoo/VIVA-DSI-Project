@@ -22,7 +22,7 @@ import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://48ee0bc3706a.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -88,6 +88,8 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const { isFavorite, addFavorite, removeFavorite, updateFavorite } = useFavorites();
   const { addToRecentlyViewed } = useRecentlyViewed(); // <-- ADICIONE esta linha
+  const [predictedLabel, setPredictedLabel] = useState<string | null>(null);
+  const [loadingLabel, setLoadingLabel] = useState(false);
 
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [comentarioTexto, setComentarioTexto] = useState('');
@@ -219,6 +221,40 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     );
     setComentarios(enriched);
   };
+
+  const fetchPredictedLabel = async () => {
+    if (!formAreaConstruida || !formAreaTerreno || !formAnoConstrucao || !formPadraoAcabamento || !formTipoImovel || !formBairro || !coords) {
+      Alert.alert('Dados incompletos', 'Preencha todas as informações do imóvel.');
+      return;
+    }
+  
+    setLoadingLabel(true);
+    setPredictedLabel(null);
+  
+    try {
+      const response = await axios.post(
+        'https://pisi3-project.onrender.com/predict', // URL da sua API
+        {
+          area_construida: parseFloat(formAreaConstruida),
+          area_terreno: parseFloat(formAreaTerreno),
+          ano_construcao: parseInt(formAnoConstrucao),
+          padrao_acabamento: formPadraoAcabamento,
+          cluster: 0, // se você tiver o cluster no backend, coloque aqui
+          bairro: formBairro,
+          tipo_imovel: formTipoImovel
+        },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+  
+      setPredictedLabel(response.data.predicted_category);
+    } catch (error) {
+      console.error('Erro ao obter rótulo:', error);
+      Alert.alert('Erro', 'Não foi possível gerar o rótulo.');
+    } finally {
+      setLoadingLabel(false);
+    }
+  };
+  
 
   const fetchComentarios = async () => {
     if (!anuncioId) return;
@@ -888,6 +924,23 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                               <Text style={styles.mlDataText}>Perfil ML: Cluster {(anuncio as any).cluster}</Text>
                             </View>
                           )}
+
+                            <TouchableOpacity
+                              style={styles.predictButton}
+                              onPress={fetchPredictedLabel}
+                              disabled={loadingLabel}
+                            >
+                              <Text style={styles.predictButtonText}>
+                                {loadingLabel ? 'Gerando rótulo...' : 'Gerar rótulo do anúncio'}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {predictedLabel && (
+                              <Text style={styles.predictedLabel}>
+                                Rótulo do anúncio: <Text style={{ fontWeight: 'bold', color: 'green' }}>{predictedLabel}</Text>
+                              </Text>
+                            )}
+
                         </View>
                       )}
                     </>
@@ -1412,4 +1465,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#374151',
   },
+
+  predictButton: {
+    backgroundColor: '#007bff',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: 'center'
+  },
+  predictButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  predictedLabel: {
+    marginTop: 15,
+    fontSize: 16
+  }
 });

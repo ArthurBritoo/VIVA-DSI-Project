@@ -1,6 +1,6 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
-import { Anuncio } from '../models/Anuncio';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { auth } from '../assets/firebaseConfig';
+import { Anuncio } from '../models/Anuncio';
 
 interface FavoritesContextType {
   favorites: Anuncio[];
@@ -16,7 +16,7 @@ interface FavoritesContextType {
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
 // ATUALIZE ESTA URL COM SUA URL DO NGROK ATUAL
-const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev";
+const BASE_URL = "https://48ee0bc3706a.ngrok-free.app";
 
 export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [favorites, setFavorites] = useState<Anuncio[]>([]);
@@ -61,8 +61,8 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     setLoading(true);
     try {
-      console.log("FavoritesContext: Fetching favorites from", "https://contrite-graspingly-ligia.ngrok-free.dev/favorites");
-      const response = await fetch("https://contrite-graspingly-ligia.ngrok-free.dev/favorites", {
+      console.log("FavoritesContext: Fetching favorites from", "https://48ee0bc3706a.ngrok-free.app/favorites");
+      const response = await fetch("https://48ee0bc3706a.ngrok-free.app/favorites", {
         headers: {
           'Authorization': `Bearer ${idToken}`,
           'ngrok-skip-browser-warning': 'true', // <-- adicione esta linha
