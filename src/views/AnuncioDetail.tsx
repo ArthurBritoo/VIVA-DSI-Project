@@ -22,7 +22,7 @@ import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://48ee0bc3706a.ngrok-free.app"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -925,21 +925,39 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                             </View>
                           )}
 
-                            <TouchableOpacity
-                              style={styles.predictButton}
-                              onPress={fetchPredictedLabel}
-                              disabled={loadingLabel}
-                            >
-                              <Text style={styles.predictButtonText}>
-                                {loadingLabel ? 'Gerando rótulo...' : 'Gerar rótulo do anúncio'}
-                              </Text>
-                            </TouchableOpacity>
+                          {/* Botão de gerar rótulo - só aparece se todas as características estiverem preenchidas */}
+                          {(anuncio as any).area_construida && 
+                           (anuncio as any).area_terreno && 
+                           (anuncio as any).ano_construcao && 
+                           (anuncio as any).padrao_acabamento && 
+                           (anuncio as any).tipo_imovel && 
+                           anuncio.endereco?.bairro && 
+                           coords ? (
+                            <>
+                              <TouchableOpacity
+                                style={styles.predictButton}
+                                onPress={fetchPredictedLabel}
+                                disabled={loadingLabel}
+                              >
+                                <Text style={styles.predictButtonText}>
+                                  {loadingLabel ? 'Gerando rótulo...' : 'Gerar rótulo do anúncio'}
+                                </Text>
+                              </TouchableOpacity>
 
-                            {predictedLabel && (
-                              <Text style={styles.predictedLabel}>
-                                Rótulo do anúncio: <Text style={{ fontWeight: 'bold', color: 'green' }}>{predictedLabel}</Text>
+                              {predictedLabel && (
+                                <Text style={styles.predictedLabel}>
+                                  Rótulo do anúncio: <Text style={{ fontWeight: 'bold', color: 'green' }}>{predictedLabel}</Text>
+                                </Text>
+                              )}
+                            </>
+                          ) : (
+                            <View style={styles.infoBox}>
+                              <MaterialCommunityIcons name="information" size={20} color="#6c757d" />
+                              <Text style={styles.infoText}>
+                                Para gerar o rótulo, é necessário preencher todas as características do imóvel (área construída, área do terreno, ano, padrão, tipo e bairro).
                               </Text>
-                            )}
+                            </View>
+                          )}
 
                         </View>
                       )}
@@ -1481,5 +1499,22 @@ const styles = StyleSheet.create({
   predictedLabel: {
     marginTop: 15,
     fontSize: 16
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#6c757d',
+    gap: 10,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#495057',
+    lineHeight: 20,
   }
 });
