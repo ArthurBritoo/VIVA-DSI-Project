@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'; // For icons
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios'; // Import axios
+import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
 import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
@@ -17,7 +18,6 @@ import { useRecentlyViewed } from '../contexts/RecentlyViewedContext'; // <-- AD
 import { Anuncio } from '../models/Anuncio';
 import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 import { RootStackParamList } from '../types/navigation';
-import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
 
 const { width } = Dimensions.get('window');
 
@@ -358,6 +358,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   }
 
   const handleSave = async () => {
+    
     if (!formTitulo || !formDescricao || !formPreco) {
       Toast.show({
         type: 'error',
@@ -378,9 +379,9 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
     setLoading(true);
     let finalImageUrl = formImageUrl;
-
+    console.log("antes da imagem!")
     // Se a imagem foi alterada e é uma URI local, faz upload
-    if (formImageUrl && formImageUrl.startsWith('file://')) {
+    if (formImageUrl && formImageUrl.startsWith('http')) {
       try {
         finalImageUrl = await uploadImageToSupabase(formImageUrl, `anuncios/${anuncioId || Date.now()}.jpg`);
       } catch (e: any) {
@@ -393,7 +394,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         return;
       }
     }
-
+    console.log("antes do try");
     try {
       const headers = { 'Authorization': `Bearer ${idToken}` };
 
@@ -405,7 +406,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       const enderecoCompleto = `${formEndereco}, ${formNumero}, ${formBairro}, ${formCidade}, ${formEstado}, ${formCep}`;
       // Geocodifique o endereço
       const coords = await geocodeAddressNominatim(enderecoCompleto);
-
+ 
       // Monte o objeto do anúncio com latitude e longitude preenchidos
       const anuncioDataToSave = {
         titulo: formTitulo,
