@@ -16,7 +16,7 @@ interface FavoritesContextType {
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
 // ATUALIZE ESTA URL COM SUA URL DO NGROK ATUAL
-const BASE_URL = "https://48ee0bc3706a.ngrok-free.app";
+const BASE_URL = "https://780b4acc7749.ngrok-free.app";
 
 export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [favorites, setFavorites] = useState<Anuncio[]>([]);
@@ -61,8 +61,7 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     setLoading(true);
     try {
-      console.log("FavoritesContext: Fetching favorites from", "https://48ee0bc3706a.ngrok-free.app/favorites");
-      const response = await fetch("https://48ee0bc3706a.ngrok-free.app/favorites", {
+      const response = await fetch("https://780b4acc7749.ngrok-free.app/favorites", {
         headers: {
           'Authorization': `Bearer ${idToken}`,
           'ngrok-skip-browser-warning': 'true', // <-- adicione esta linha
