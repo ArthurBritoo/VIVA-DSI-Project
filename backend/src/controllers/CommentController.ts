@@ -5,7 +5,11 @@ export interface Comentario {
   id?: string;
   anuncioId: string;
   userId: string;
+  userName?: string;
+  userPhoto?: string;
   texto: string;
+  titulo: string; // <-- ADICIONE
+  rating: number; // <-- ADICIONE
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
@@ -35,10 +39,13 @@ export const createComment = async (req: Request, res: Response) => {
   try {
     const db = req.app.locals.db as admin.firestore.Firestore;
     const anuncioId = req.params.id;
-    const { texto } = req.body;
+    const { texto, titulo, rating } = req.body; // <-- ADICIONE titulo e rating
     const userId = (req as any).user?.uid;
+    
     if (!userId) return res.status(401).json({ error: 'Não autenticado' });
     if (!texto || !texto.trim()) return res.status(400).json({ error: 'Texto é obrigatório' });
+    if (!titulo || !titulo.trim()) return res.status(400).json({ error: 'Título é obrigatório' }); // <-- ADICIONE VALIDAÇÃO
+    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating deve ser de 1 a 5' }); // <-- ADICIONE VALIDAÇÃO
 
     const userSnap = await db.collection('users').doc(userId).get();
     const userData = userSnap.exists ? userSnap.data() : {};
@@ -48,6 +55,8 @@ export const createComment = async (req: Request, res: Response) => {
       anuncioId,
       userId,
       texto: texto.trim(),
+      titulo: titulo.trim(), // <-- ADICIONE
+      rating: Math.round(rating), // <-- ADICIONE
       userName: userData?.nome || null,
       userPhoto: userData?.foto || null,
       createdAt: now,
@@ -65,9 +74,12 @@ export const updateComment = async (req: Request, res: Response) => {
   try {
     const db = req.app.locals.db as admin.firestore.Firestore;
     const { id: anuncioId, comentarioId } = req.params;
-    const { texto } = req.body;
+    const { texto, titulo, rating } = req.body; // <-- ADICIONE titulo e rating
     const userId = (req as any).user?.uid;
+    
     if (!texto || !texto.trim()) return res.status(400).json({ error: 'Texto é obrigatório' });
+    if (!titulo || !titulo.trim()) return res.status(400).json({ error: 'Título é obrigatório' }); // <-- ADICIONE VALIDAÇÃO
+    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating deve ser de 1 a 5' }); // <-- ADICIONE VALIDAÇÃO
 
     const ref = comentariosCol(db, anuncioId).doc(comentarioId);
     const snap = await ref.get();
@@ -76,8 +88,11 @@ export const updateComment = async (req: Request, res: Response) => {
 
     await ref.update({
       texto: texto.trim(),
+      titulo: titulo.trim(), // <-- ADICIONE
+      rating: Math.round(rating), // <-- ADICIONE
       updatedAt: admin.firestore.Timestamp.now(),
     });
+    
     const updated = await ref.get();
     res.json({ id: ref.id, ...(updated.data() as object) });
   } catch (e: any) {

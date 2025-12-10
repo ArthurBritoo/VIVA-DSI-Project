@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { UserProvider } from './src/contexts/UserContext';
 import { FavoritesProvider } from './src/contexts/FavoritesContext';
 import { RecentlyViewedProvider } from './src/contexts/RecentlyViewedContext';
+import { ComentariosProvider } from './src/contexts/ComentariosContext';
 import Login from './src/views/Login';
 import Cadastro from './src/views/Cadastro';
 import Home from './src/views/Home';
@@ -23,19 +24,21 @@ export default function App() {
     <UserProvider>
       <FavoritesProvider>
         <RecentlyViewedProvider>
-          <NavigationContainer >
-            <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Login" component={Login} />
-              <Stack.Screen name="Cadastro" component={Cadastro} />
-              <Stack.Screen name="Home" component={Home} />
-              <Stack.Screen name="Buscar" component={Buscar} />
-              <Stack.Screen name="Perfil" component={Perfil} />
-              <Stack.Screen name="RedefinirSenha" component={RedefinirSenha} />
-              <Stack.Screen name="AnuncioDetail" component={AnuncioDetail} />
-              <Stack.Screen name={"EditarPerfil" as keyof RootStackParamList} component={EditarPerfil} />
-            </Stack.Navigator>
-            <Toast />
-          </NavigationContainer>
+          <ComentariosProvider>
+            <NavigationContainer >
+              <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Login" component={Login} />
+                <Stack.Screen name="Cadastro" component={Cadastro} />
+                <Stack.Screen name="Home" component={Home} />
+                <Stack.Screen name="Buscar" component={Buscar} />
+                <Stack.Screen name="Perfil" component={Perfil} />
+                <Stack.Screen name="RedefinirSenha" component={RedefinirSenha} />
+                <Stack.Screen name="AnuncioDetail" component={AnuncioDetail} />
+                <Stack.Screen name={"EditarPerfil" as keyof RootStackParamList} component={EditarPerfil} />
+              </Stack.Navigator>
+              <Toast />
+            </NavigationContainer>
+          </ComentariosProvider>
         </RecentlyViewedProvider>
       </FavoritesProvider>
     </UserProvider>

@@ -10,7 +10,7 @@ import FavoriteButton from '../components/FavoriteButton';
 import { Anuncio } from '../models/Anuncio';
 import { RootStackParamList } from '../types/navigation';
 
-const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev";
+const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev";
 
 export default function Buscar() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();

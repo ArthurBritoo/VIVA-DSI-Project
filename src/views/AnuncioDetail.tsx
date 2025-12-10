@@ -2,11 +2,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'; // For icons
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios'; // Import axios
-import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
 import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"; // <-- ADICIONE Linking
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"; // <-- ADICIONE Linking
 import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from 'react-native-toast-message';
@@ -18,11 +17,14 @@ import { useRecentlyViewed } from '../contexts/RecentlyViewedContext'; // <-- AD
 import { Anuncio } from '../models/Anuncio';
 import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
 import { RootStackParamList } from '../types/navigation';
+import * as Clipboard from 'expo-clipboard'; // <-- MUDE ESTE IMPORT
+import { useComentarios } from '../contexts/ComentariosContext'; // <-- ADICIONE ESTA LINHA
+import { Comentario } from '../models/Comentario';
 
 const { width } = Dimensions.get('window');
 
 // URL base do seu backend
-const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
+const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev"; // <<<<< ESSA URL MUDA >>>>>
 
 type AnuncioDetailScreenRouteProp = RouteProp<RootStackParamList, 'AnuncioDetail'>;
 type AnuncioDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AnuncioDetail'>;
@@ -39,16 +41,6 @@ interface Anunciante {
   telefone: string;
 }
 
-type Comentario = {
-  id: string;
-  anuncioId: string;
-  userId: string;
-  texto: string;
-  createdAt?: any;
-  updatedAt?: any;
-  userName?: string;
-  userPhoto?: string;
-};
 
 interface UserBasic {
   uid: string;
@@ -91,9 +83,29 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [predictedLabel, setPredictedLabel] = useState<string | null>(null);
   const [loadingLabel, setLoadingLabel] = useState(false);
 
-  const [comentarios, setComentarios] = useState<Comentario[]>([]);
+  const { 
+    comentarios: comentariosContext, 
+    loading: loadingComentarios, 
+    loadComentarios, 
+    addComentario, 
+    deleteComentario,
+    updateComentario // <-- ADICIONE ESTA LINHA
+  } = useComentarios();
   const [comentarioTexto, setComentarioTexto] = useState('');
+  const [comentarioTitulo, setComentarioTitulo] = useState(''); // <-- ADICIONE
+  const [comentarioRating, setComentarioRating] = useState(5); // <-- ADICIONE
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [mostrarModalComentario, setMostrarModalComentario] = useState(false); // <-- ADICIONE
+
+  // ADICIONE ESTADOS:
+  const [editandoComentarioId, setEditandoComentarioId] = useState<string | null>(null);
+  const [editandoTitulo, setEditandoTitulo] = useState('');
+  const [editandoTexto, setEditandoTexto] = useState('');
+  const [editandoRating, setEditandoRating] = useState(5);
+  const [mostrarModalEdicao, setMostrarModalEdicao] = useState(false);
+
+  // Simplificar:
+  const comentariosParaExibir = comentariosContext || [];
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -136,33 +148,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         const fetchedAnuncio = anuncioResponse.data;
         setAnuncio(fetchedAnuncio);
 
-        // ADICIONE ESTAS 2 LINHAS:
         await addToRecentlyViewed(fetchedAnuncio);
-        console.log('AnuncioDetail: Added to recently viewed:', fetchedAnuncio.titulo);
-
-        // Pre-fill forms
-        setFormTitulo(fetchedAnuncio.titulo);
-        setFormDescricao(fetchedAnuncio.descricao);
-        setFormPreco(fetchedAnuncio.preco?.toString() || '');
-        setFormImageUrl(fetchedAnuncio.imageUrl);
-        setFormEndereco(fetchedAnuncio.endereco?.logradouro || '');
-        setFormNumero(fetchedAnuncio.endereco?.numero || '');
-        setFormCidade(fetchedAnuncio.endereco?.cidade || '');
-        setFormEstado(fetchedAnuncio.endereco?.estado || '');
-        setFormBairro(fetchedAnuncio.endereco?.bairro || '');
-        setFormCep(fetchedAnuncio.endereco?.cep || '');
-        setFormAreaConstruida((fetchedAnuncio as any).area_construida?.toString() || '');
-        setFormAreaTerreno((fetchedAnuncio as any).area_terreno?.toString() || '');
-        setFormAnoConstrucao((fetchedAnuncio as any).ano_construcao?.toString() || '');
-        setFormPadraoAcabamento((fetchedAnuncio as any).padrao_acabamento || '');
-        setFormTipoImovel((fetchedAnuncio as any).tipo_imovel || '');
-
-        if (fetchedAnuncio.endereco?.latitude && fetchedAnuncio.endereco?.longitude) {
-          setCoords({
-            latitude: Number(fetchedAnuncio.endereco.latitude),
-            longitude: Number(fetchedAnuncio.endereco.longitude),
-          });
-        }
 
         // Fetch Anunciante
         if (fetchedAnuncio.userId) {
@@ -172,16 +158,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setAnunciante(userResponse.data);
         }
 
-        // ADICIONE ISSO: Carregar comentários logo após carregar o anúncio
-        await fetchComentarios();
+        // Carregar comentários UMA VEZ
+        await loadComentarios(anuncioId);
 
       } catch (error) {
         console.error("Error fetching data:", error);
-        Toast.show({
-          type: 'error',
-          text1: 'Erro',
-          text2: 'Não foi possível carregar os dados.',
-        });
         setAnuncio(null);
       } finally {
         setLoading(false);
@@ -189,7 +170,8 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     };
 
     loadData();
-  }, [anuncioId, idToken]); // <-- MANTENHA APENAS ESSAS 2 DEPENDÊNCIAS
+    // REMOVE loadComentarios da dependency array
+  }, [anuncioId, idToken]); // <-- REMOVA loadComentarios DAQUI
 
   const headersAuth = idToken
     ? { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' }
@@ -210,16 +192,6 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     } catch {
       return { uid };
     }
-  };
-
-  const enrichComentarios = async (lista: Comentario[]) => {
-    const enriched = await Promise.all(
-      lista.map(async c => {
-        const u = await fetchUserForComment(c.userId);
-        return { ...c, userName: u.nome || 'Usuário', userPhoto: u.foto };
-      })
-    );
-    setComentarios(enriched);
   };
 
   const fetchPredictedLabel = async () => {
@@ -256,65 +228,88 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   };
   
 
-  const fetchComentarios = async () => {
-    if (!anuncioId) return;
-    const url = `${BASE_URL}/anuncios/${anuncioId}/comentarios`;
-    console.log('URL comentários:', url);
-    try {
-      const { data } = await axios.get<Comentario[]>(url);
-      await enrichComentarios(data); // <-- JÁ ESTAVA CHAMANDO, MAS VAMOS GARANTIR
-    } catch (e: any) {
-      console.log('Erro ao listar comentários:', e?.response?.status, e?.response?.data || e.message);
-      setComentarios([]); // <-- ADICIONE ISSO para limpar em caso de erro
-    }
-  };
-
   const criarComentario = async () => {
-    if (!comentarioTexto.trim()) return;
+    if (!comentarioTitulo.trim() || !comentarioTexto.trim()) {
+      Alert.alert('Erro', 'Preencha título e descrição');
+      return;
+    }
+    
+    if (!anuncioId) {
+      Alert.alert('Erro', 'ID do anúncio não encontrado');
+      return;
+    }
+
     try {
-      await axios.post(
-        `${BASE_URL}/anuncios/${anuncioId}/comentarios`,
-        { texto: comentarioTexto.trim() },
-        { headers: headersAuth }
-      );
+      await addComentario(anuncioId, comentarioTitulo, comentarioTexto, comentarioRating);
+      setComentarioTitulo('');
       setComentarioTexto('');
-      await fetchComentarios();
+      setComentarioRating(5);
+      setMostrarModalComentario(false);
+      
+      // AGUARDE UM POUCO E DEPOIS RECARREGUE
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await loadComentarios(anuncioId);
+      
+      Alert.alert('Sucesso', 'Comentário adicionado!');
     } catch (e) {
       console.log('Erro ao criar comentário:', e);
+      Alert.alert('Erro', 'Não foi possível adicionar o comentário');
     }
   };
 
-  const iniciarEdicao = (c: Comentario) => {
-    setEditandoId(c.id);
-    setComentarioTexto(c.texto);
+  // FUNÇÃO PARA EDITAR (ÚNICA):
+  const iniciarEdicaoComentario = (comentario: Comentario) => {
+    setEditandoComentarioId(comentario.id);
+    setEditandoTitulo(comentario.titulo);
+    setEditandoTexto(comentario.texto || comentario.descricao || '');
+    setEditandoRating(comentario.rating);
+    setMostrarModalEdicao(true);
   };
 
-  const salvarEdicao = async () => {
-    if (!editandoId) return;
+  const salvarEdicaoComentario = async () => {
+    if (!editandoComentarioId || !anuncioId) return;
+
     try {
-      await axios.put(
-        `${BASE_URL}/anuncios/${anuncioId}/comentarios/${editandoId}`,
-        { texto: comentarioTexto.trim() },
-        { headers: headersAuth }
+      await updateComentario(
+        anuncioId,
+        editandoComentarioId,
+        editandoTitulo,
+        editandoTexto,
+        editandoRating
       );
-      setEditandoId(null);
-      setComentarioTexto('');
-      await fetchComentarios();
+      setMostrarModalEdicao(false);
+      setEditandoComentarioId(null);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await loadComentarios(anuncioId);
+      Alert.alert('Sucesso', 'Comentário atualizado!');
     } catch (e) {
       console.log('Erro ao atualizar comentário:', e);
+      Alert.alert('Erro', 'Não foi possível atualizar o comentário');
     }
   };
 
-  const excluirComentario = async (id: string) => {
-    try {
-      await axios.delete(
-        `${BASE_URL}/anuncios/${anuncioId}/comentarios/${id}`,
-        { headers: headersAuth }
-      );
-      await fetchComentarios();
-    } catch (e) {
-      console.log('Erro ao excluir comentário:', e);
-    }
+  // FUNÇÃO PARA DELETAR (ÚNICA):
+  const deletarComentario = async (comentarioId: string) => {
+    if (!anuncioId) return;
+
+    Alert.alert('Deletar Comentário', 'Tem certeza?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Deletar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteComentario(anuncioId, comentarioId);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await loadComentarios(anuncioId);
+            Alert.alert('Sucesso', 'Comentário deletado!');
+          } catch (e) {
+            console.log('Erro ao deletar comentário:', e);
+            Alert.alert('Erro', 'Não foi possível deletar o comentário');
+          }
+        },
+      },
+    ]);
   };
 
   const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
@@ -358,7 +353,6 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   }
 
   const handleSave = async () => {
-    
     if (!formTitulo || !formDescricao || !formPreco) {
       Toast.show({
         type: 'error',
@@ -379,9 +373,9 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
     setLoading(true);
     let finalImageUrl = formImageUrl;
-    console.log("antes da imagem!")
+
     // Se a imagem foi alterada e é uma URI local, faz upload
-    if (formImageUrl && formImageUrl.startsWith('http')) {
+    if (formImageUrl && formImageUrl.startsWith('file://')) {
       try {
         finalImageUrl = await uploadImageToSupabase(formImageUrl, `anuncios/${anuncioId || Date.now()}.jpg`);
       } catch (e: any) {
@@ -394,7 +388,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         return;
       }
     }
-    console.log("antes do try");
+
     try {
       const headers = { 'Authorization': `Bearer ${idToken}` };
 
@@ -406,7 +400,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       const enderecoCompleto = `${formEndereco}, ${formNumero}, ${formBairro}, ${formCidade}, ${formEstado}, ${formCep}`;
       // Geocodifique o endereço
       const coords = await geocodeAddressNominatim(enderecoCompleto);
- 
+
       // Monte o objeto do anúncio com latitude e longitude preenchidos
       const anuncioDataToSave = {
         titulo: formTitulo,
@@ -641,9 +635,138 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     );
   };
 
+  const renderModalComentario = () => (
+    <Modal
+      visible={mostrarModalComentario}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setMostrarModalComentario(false)}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setMostrarModalComentario(false)}>
+            <MaterialCommunityIcons name="close" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Novo Comentário</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <View style={styles.modalContent}>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Título do comentário"
+            value={comentarioTitulo}
+            onChangeText={setComentarioTitulo}
+            maxLength={100}
+          />
+
+          <TextInput
+            style={[styles.modalInput, styles.modalTextarea]}
+            placeholder="Descreva sua opinião..."
+            value={comentarioTexto}
+            onChangeText={setComentarioTexto}
+            multiline
+            numberOfLines={6}
+            maxLength={500}
+          />
+
+          <View style={styles.ratingContainer}>
+            <Text style={styles.ratingLabel}>Avaliação:</Text>
+            <View style={styles.starsContainer}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setComentarioRating(star)}
+                >
+                  <Text style={[
+                    styles.star,
+                    { color: star <= comentarioRating ? '#FFD700' : '#ccc' }
+                  ]}>
+                    ★
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.modalSubmitButton}
+            onPress={criarComentario}
+          >
+            <Text style={styles.modalSubmitText}>Enviar Comentário</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+
+  // MODAL DE EDIÇÃO:
+  const renderModalEdicaoComentario = () => (
+    <Modal
+      visible={mostrarModalEdicao}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setMostrarModalEdicao(false)}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setMostrarModalEdicao(false)}>
+            <MaterialCommunityIcons name="close" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Editar Comentário</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <View style={styles.modalContent}>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Título"
+            value={editandoTitulo}
+            onChangeText={setEditandoTitulo}
+          />
+
+          <TextInput
+            style={[styles.modalInput, styles.modalTextarea]}
+            placeholder="Descrição"
+            value={editandoTexto}
+            onChangeText={setEditandoTexto}
+            multiline
+            numberOfLines={6}
+          />
+
+          <View style={styles.ratingContainer}>
+            <Text style={styles.ratingLabel}>Avaliação:</Text>
+            <View style={styles.starsContainer}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setEditandoRating(star)}
+                >
+                  <Text style={[
+                    styles.star,
+                    { color: star <= editandoRating ? '#FFD700' : '#ccc' }
+                  ]}>
+                    ★
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.modalSubmitButton}
+            onPress={salvarEdicaoComentario}
+          >
+            <Text style={styles.modalSubmitText}>Salvar Edição</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
@@ -717,7 +840,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
       {!loading && (
         <FlatList
-          data={comentarios}
+          data={comentariosParaExibir} // <-- USE comentariosParaExibir
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View>
@@ -926,39 +1049,21 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                             </View>
                           )}
 
-                          {/* Botão de gerar rótulo - só aparece se todas as características estiverem preenchidas */}
-                          {(anuncio as any).area_construida && 
-                           (anuncio as any).area_terreno && 
-                           (anuncio as any).ano_construcao && 
-                           (anuncio as any).padrao_acabamento && 
-                           (anuncio as any).tipo_imovel && 
-                           anuncio.endereco?.bairro && 
-                           coords ? (
-                            <>
-                              <TouchableOpacity
-                                style={styles.predictButton}
-                                onPress={fetchPredictedLabel}
-                                disabled={loadingLabel}
-                              >
-                                <Text style={styles.predictButtonText}>
-                                  {loadingLabel ? 'Gerando rótulo...' : 'Gerar rótulo do anúncio'}
-                                </Text>
-                              </TouchableOpacity>
-
-                              {predictedLabel && (
-                                <Text style={styles.predictedLabel}>
-                                  Rótulo do anúncio: <Text style={{ fontWeight: 'bold', color: 'green' }}>{predictedLabel}</Text>
-                                </Text>
-                              )}
-                            </>
-                          ) : (
-                            <View style={styles.infoBox}>
-                              <MaterialCommunityIcons name="information" size={20} color="#6c757d" />
-                              <Text style={styles.infoText}>
-                                Para gerar o rótulo, é necessário preencher todas as características do imóvel (área construída, área do terreno, ano, padrão, tipo e bairro).
+                            <TouchableOpacity
+                              style={styles.predictButton}
+                              onPress={fetchPredictedLabel}
+                              disabled={loadingLabel}
+                            >
+                              <Text style={styles.predictButtonText}>
+                                {loadingLabel ? 'Gerando rótulo...' : 'Gerar rótulo do anúncio'}
                               </Text>
-                            </View>
-                          )}
+                            </TouchableOpacity>
+
+                            {predictedLabel && (
+                              <Text style={styles.predictedLabel}>
+                                Rótulo do anúncio: <Text style={{ fontWeight: 'bold', color: 'green' }}>{predictedLabel}</Text>
+                              </Text>
+                            )}
 
                         </View>
                       )}
@@ -993,7 +1098,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                     </Text>
                   )}
                   <View style={styles.mapContainer}>
-                    {coords ? (
+                    {coords && coords.latitude && coords.longitude ? (
                       <MapView
                         style={styles.mapImage}
                         initialRegion={{
@@ -1002,11 +1107,21 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                           latitudeDelta: 0.01,
                           longitudeDelta: 0.01,
                         }}
+                        scrollEnabled={false}
+                        zoomEnabled={false}
                       >
-                        <Marker coordinate={coords} />
+                        <Marker 
+                          coordinate={{
+                            latitude: coords.latitude,
+                            longitude: coords.longitude,
+                          }} 
+                        />
                       </MapView>
                     ) : (
-                      <Text style={styles.noMapText}>Mapa não disponível</Text>
+                      <View style={styles.mapPlaceholder}>
+                        <MaterialCommunityIcons name="map-outline" size={40} color="#ccc" />
+                        <Text style={styles.noMapText}>Mapa não disponível</Text>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -1015,33 +1130,48 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
               </View>
             </View>
           }
-          renderItem={({ item }) => (
-            <View style={styles.commentItem}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          renderItem={({ item }: { item: Comentario }) => (
+            <View style={styles.comentarioCard}>
+              <View style={styles.comentarioHeader}>
                 <Image
-                  source={{ uri: item.userPhoto || 'https://via.placeholder.com/40' }}
-                  style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                  source={{ uri: item.userPhoto || item.userAvatar || 'https://via.placeholder.com/40' }}
+                  style={styles.comentarioAvatar}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '600' }}>{item.userName || 'Usuário'}</Text>
-                  <Text style={styles.commentText}>{item.texto}</Text>
+                  {/* TÍTULO */}
+                  <Text style={styles.comentarioTitulo}>{item.titulo}</Text>
+                  
+                  {/* USUÁRIO */}
+                  <Text style={styles.comentarioUser}>{item.userName}</Text>
+                  
+                  {/* RATING COM ESTRELAS */}
+                  <View style={styles.ratingRow}>
+                    <Text style={styles.rating}>{'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}</Text>
+                    <Text style={styles.ratingText}>({item.rating}/5)</Text>
+                  </View>
                 </View>
-                {item.userId === currentUser?.uid && (
-                  <TouchableOpacity onPress={() => iniciarEdicao(item)} style={{ padding: 4 }}>
-                    <MaterialCommunityIcons name="dots-vertical" size={22} color="#555" />
-                  </TouchableOpacity>
-                )}
               </View>
-              {item.userId === currentUser?.uid && editandoId === item.id && (
-                <View style={styles.commentActions}>
-                  <TouchableOpacity onPress={() => salvarEdicao()}>
-                    <Text style={styles.editBtn}>Salvar</Text>
+              
+              {/* DESCRIÇÃO/TEXTO */}
+              <Text style={styles.comentarioDescricao}>{item.texto || item.descricao}</Text>
+              
+              {/* BOTÕES DE EDITAR E DELETAR */}
+              {item.userId === currentUser?.uid && (
+                <View style={styles.comentarioActions}>
+                  <TouchableOpacity 
+                    style={styles.editButton}
+                    onPress={() => iniciarEdicaoComentario(item)}
+                  >
+                    <MaterialCommunityIcons name="pencil" size={18} color="#007AFF" />
+                    <Text style={styles.editButtonText}>Editar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => excluirComentario(item.id)}>
-                    <Text style={styles.deleteBtn}>Excluir</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { setEditandoId(null); setComentarioTexto(''); }}>
-                    <Text style={{ color: '#666' }}>Cancelar</Text>
+                  
+                  <TouchableOpacity 
+                    style={styles.deleteButtonStyle}
+                    onPress={() => deletarComentario(item.id)}
+                  >
+                    <MaterialCommunityIcons name="trash-can" size={18} color="#FF3B30" />
+                    <Text style={styles.deleteButtonText}>Deletar</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1049,22 +1179,6 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           )}
           ListFooterComponent={
             <View style={{ paddingHorizontal: 16, paddingBottom: 120 }}>
-              <View style={styles.commentForm}>
-                <TextInput
-                  style={styles.commentInput}
-                  placeholder={editandoId ? 'Editar comentário...' : 'Escreva um comentário...'}
-                  value={comentarioTexto}
-                  onChangeText={setComentarioTexto}
-                />
-                <TouchableOpacity
-                  style={styles.commentSend}
-                  onPress={editandoId ? salvarEdicao : criarComentario}
-                  disabled={!comentarioTexto.trim()}
-                >
-                  <Text style={{ color: 'white' }}>{editandoId ? 'Salvar' : 'Enviar'}</Text>
-                </TouchableOpacity>
-              </View>
-
               {isEditing && (
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
@@ -1092,12 +1206,26 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         </TouchableOpacity>
       )}
 
+      {/* ADICIONE ESTE FAB PARA COMENTÁRIOS */}
+      {!isEditing && anuncioId && (
+        <TouchableOpacity 
+          style={[styles.fab, styles.fabComment]}
+          onPress={() => setMostrarModalComentario(true)}
+        >
+          <MaterialCommunityIcons name="message-plus" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      {renderModalComentario()}
+      {renderModalEdicaoComentario()}
+
       <BottomNav />
       <Toast />
     </SafeAreaView>
   );
 }
 
+// ADICIONE ESTE ESTILO:
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1190,13 +1318,6 @@ const styles = StyleSheet.create({
     gap: 8, 
   },
   paginationDot: {
-    width: 24, 
-    height: 6, 
-    borderRadius: 3, 
-    backgroundColor: "rgba(255,255,255,0.5)", 
-  },
-  paginationDotActive: {
-    width: 24,
     height: 6,
     borderRadius: 3,
     backgroundColor: "#fff", 
@@ -1360,6 +1481,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     zIndex: 100, 
   },
+  fabComment: {
+    bottom: 220, // <-- DIFERENTE DO FAB DE EDIÇÃO
+    backgroundColor: '#28a745',
+  },
   noAnuncioContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1501,21 +1626,156 @@ const styles = StyleSheet.create({
     marginTop: 15,
     fontSize: 16
   },
-  infoBox: {
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#f6f7f8',
+  },
+  modalHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 16,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  modalContent: {
+    padding: 16,
+    flex: 1,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
     padding: 12,
-    backgroundColor: '#f8f9fa',
+    marginBottom: 16,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  modalTextarea: {
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+  ratingContainer: {
+    marginBottom: 20,
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: '#000',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  star: {
+    fontSize: 32,
+  },
+  modalSubmitButton: {
+    backgroundColor: '#007bff',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  modalSubmitText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  mapPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+  },
+  comentarioCard: {
+    backgroundColor: '#fff',
+    padding: 12,
+    marginBottom: 10,
     borderRadius: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#6c757d',
+    borderLeftColor: '#007AFF',
+  },
+  comentarioHeader: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  comentarioTitulo: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#000',
+    marginBottom: 4,
+  },
+  comentarioUser: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  rating: {
+    color: '#FFD700',
+    fontSize: 14,
+  },
+  comentarioDescricao: {
+    fontSize: 13,
+    color: '#333',
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  comentarioActions: {
+    flexDirection: 'row',
     gap: 10,
   },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#495057',
-    lineHeight: 20,
-  }
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#f0f7ff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  editButtonText: {
+    color: '#007AFF',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  deleteButtonStyle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ffe0e6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  deleteButtonText: {
+    color: '#FF3B30',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  ratingText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+  },
+  comentarioAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
 });

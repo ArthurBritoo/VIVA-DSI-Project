@@ -16,7 +16,7 @@ interface FavoritesContextType {
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
 // ATUALIZE ESTA URL COM SUA URL DO NGROK ATUAL
-const BASE_URL = "https://contrite-graspingly-ligia.ngrok-free.dev";
+const BASE_URL = "https://privative-unphysiological-lamonica.ngrok-free.dev";
 
 export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [favorites, setFavorites] = useState<Anuncio[]>([]);
@@ -61,8 +61,8 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     setLoading(true);
     try {
-      console.log("FavoritesContext: Fetching favorites from", "https://contrite-graspingly-ligia.ngrok-free.dev/favorites");
-      const response = await fetch("https://contrite-graspingly-ligia.ngrok-free.dev/favorites", {
+      console.log("FavoritesContext: Fetching favorites from", "https://privative-unphysiological-lamonica.ngrok-free.dev/favorites");
+      const response = await fetch("https://privative-unphysiological-lamonica.ngrok-free.dev/favorites", {
         headers: {
           'Authorization': `Bearer ${idToken}`,
           'ngrok-skip-browser-warning': 'true', // <-- adicione esta linha
@@ -88,35 +88,47 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const addFavorite = async (anuncio: Anuncio) => {
     if (!idToken || !anuncio.id) {
-      console.warn("FavoritesContext: Cannot add favorite - missing token or anuncio ID");
+      console.error('FavoritesContext: No token or anuncio ID available');
       return;
     }
 
-    console.log("FavoritesContext: Adding favorite (optimistic):", anuncio.id);
-    const previousFavorites = [...favorites];
-    const newFavorites = [...favorites, anuncio];
-    setFavorites(newFavorites);
-
     try {
+      console.log('FavoritesContext: Adding favorite', anuncio.id);
+      
+      // PRIMEIRO: atualizar UI imediatamente (otimistic update)
+      if (!favorites.find(fav => fav.id === anuncio.id)) {
+        setFavorites([...favorites, anuncio]);
+        console.log('FavoritesContext: UI updated immediately');
+      }
+
+      // DEPOIS: enviar para backend
       const response = await fetch(`${BASE_URL}/favorites`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${idToken}`,
+          'ngrok-skip-browser-warning': 'true',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ anuncioId: anuncio.id }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`FavoritesContext: Failed to add favorite - HTTP ${response.status}:`, errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
+      console.log('Response status:', response.status);
+
+      if (response.status === 401) {
+        console.error('❌ 401 - Recarregando token...');
+        const newToken = await auth.currentUser?.getIdToken(true);
+        if (newToken) {
+          setIdToken(newToken);
+        }
       }
 
-      console.log("FavoritesContext: Favorite added successfully");
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      console.log('FavoritesContext: Favorite saved to backend');
     } catch (error) {
-      console.error("FavoritesContext: Error adding favorite, reverting", error);
-      setFavorites(previousFavorites);
+      console.error('FavoritesContext: Error:', error);
     }
   };
 
