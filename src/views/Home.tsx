@@ -35,6 +35,73 @@ export default function App() {
     return unsubscribe;
   }, []);
 
+<<<<<<< HEAD
+=======
+  // 🔹 Função de busca dos anúncios
+  const fetchAnuncios = useCallback(async () => {
+    if (!idToken) {
+      console.log("IdToken não disponível, pulando chamada de API.");
+      return;
+    }
+
+    try {
+      const response = await fetch("https://privative-unphysiological-lamonica.ngrok-free.dev/anuncios", { // A MAIOR DOR DE CABEÇA FOI AQUI
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      console.log("Status da resposta da API:", response.status);
+      const data = await response.json();
+      console.log("Dados recebidos da API:", data);
+
+      let anunciosToProcess: any[] = [];
+
+      if (Array.isArray(data)) {
+        anunciosToProcess = data;
+      } else if (data && Array.isArray(data.anuncios)) {
+        anunciosToProcess = data.anuncios;
+      } else {
+        console.warn("Resposta inesperada da API:", data);
+        setRecentlyViewed([]);
+        return;
+      }
+
+      const anunciosList: Anuncio[] = anunciosToProcess.map((anuncio: any) => ({
+        id: anuncio.id,
+        titulo: anuncio.titulo,
+        preco: anuncio.preco || 0,
+        imageUrl: anuncio.imageUrl,
+        descricao: anuncio.descricao || '',
+        userId: anuncio.userId || '',
+      }));
+
+      setRecentlyViewed(anunciosList);
+    } catch (error) {
+      console.error("Erro ao buscar anúncios:", error);
+      setRecentlyViewed([]);
+    }
+  }, [idToken]);
+
+  // 🔹 Busca inicial quando o token é carregado
+  useEffect(() => {
+    if (idToken) {
+      fetchAnuncios();
+    }
+  }, [idToken, fetchAnuncios]);
+
+  // 🔹 Atualiza anúncios sempre que a tela volta ao foco
+  useFocusEffect(
+    useCallback(() => {
+      if (idToken) {
+        console.log("Tela em foco — atualizando anúncios.");
+        fetchAnuncios();
+      }
+    }, [idToken, fetchAnuncios])
+  );
+
+  // 🔹 Navegação entre telas
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
   const handlePress = (tabName: keyof RootStackParamList, anuncioId?: string) => {
     if (tabName === "AnuncioDetail") {
       navigation.navigate("AnuncioDetail", { anuncioId });

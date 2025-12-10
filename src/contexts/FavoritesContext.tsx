@@ -7,7 +7,10 @@ interface FavoritesContextType {
   addFavorite: (anuncio: Anuncio) => Promise<void>;
   removeFavorite: (anuncioId: string) => Promise<void>;
   updateFavorite: (anuncio: Anuncio) => Promise<void>;
+<<<<<<< HEAD
   setFavoritesOrder: (reorderedFavorites: Anuncio[]) => Promise<void>;
+=======
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
   isFavorite: (anuncioId: string) => boolean;
   loading: boolean;
   reloadFavorites: () => Promise<void>;
@@ -23,6 +26,7 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState<string | null>(null);
 
+<<<<<<< HEAD
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -42,6 +46,24 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
     });
 
     return () => unsubscribe();
+=======
+  const loadFavorites = async () => {
+    setLoading(true);
+    try {
+      const storedFavorites = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (storedFavorites) {
+        setFavorites(JSON.parse(storedFavorites));
+      }
+    } catch (error) {
+      console.error("Failed to load favorites from storage", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFavorites();
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
   }, []);
 
   useEffect(() => {
@@ -215,11 +237,18 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
+  const updateFavorite = async (anuncio: Anuncio) => {
+    if (!anuncio.id) return;
+    const newFavorites = favorites.map(fav => (fav.id === anuncio.id ? anuncio : fav));
+    await saveFavorites(newFavorites);
+  };
+
   const isFavorite = (anuncioId: string) => {
     return favorites.some(fav => fav.id === anuncioId);
   };
 
   return (
+<<<<<<< HEAD
     <FavoritesContext.Provider value={{ 
       favorites, 
       addFavorite, 
@@ -230,6 +259,9 @@ export const FavoritesProvider: React.FC<{ children: ReactNode }> = ({ children 
       loading, 
       reloadFavorites: loadFavorites 
     }}>
+=======
+    <FavoritesContext.Provider value={{ favorites, addFavorite, removeFavorite, updateFavorite, isFavorite, loading, reloadFavorites: loadFavorites }}>
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
       {children}
     </FavoritesContext.Provider>
   );

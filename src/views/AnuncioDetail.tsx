@@ -5,12 +5,23 @@ import axios from 'axios'; // Import axios
 import * as ImagePicker from 'expo-image-picker'; // Assuming expo is available
 import { User } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
+<<<<<<< HEAD
 import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"; // <-- ADICIONE Linking
 import MapView, { Marker } from 'react-native-maps';
+=======
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList } from "react-native";
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from 'react-native-toast-message';
 import { auth } from '../assets/firebaseConfig'; // Importar auth (storage será removido daqui)
 import BottomNav from '../components/BottomNav';
+<<<<<<< HEAD
+=======
+import { RootStackParamList } from '../types/navigation';
+import { uploadImageToSupabase } from '../services/uploadImageToSupabase';
+import MapView, { Marker } from 'react-native-maps';
+import { Anuncio } from '../models/Anuncio';
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
 import FavoriteButton from '../components/FavoriteButton';
 import { useFavorites } from '../contexts/FavoritesContext';
 import { useRecentlyViewed } from '../contexts/RecentlyViewedContext'; // <-- ADICIONE esta linha
@@ -41,6 +52,19 @@ interface Anunciante {
   telefone: string;
 }
 
+<<<<<<< HEAD
+=======
+type Comentario = {
+  id: string;
+  anuncioId: string;
+  userId: string;
+  texto: string;
+  createdAt?: any;
+  updatedAt?: any;
+  userName?: string;
+  userPhoto?: string;
+};
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
 
 interface UserBasic {
   uid: string;
@@ -48,7 +72,11 @@ interface UserBasic {
   foto?: string;
 }
 
+<<<<<<< HEAD
 
+=======
+const [userCache, setUserCache] = useState<Record<string, UserBasic>>({});
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
 
 // A função uploadImageToStorage será removida
 
@@ -79,6 +107,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
   const [formTipoImovel, setFormTipoImovel] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const { isFavorite, addFavorite, removeFavorite, updateFavorite } = useFavorites();
+<<<<<<< HEAD
   const { addToRecentlyViewed } = useRecentlyViewed(); // <-- ADICIONE esta linha
   const [predictedLabel, setPredictedLabel] = useState<string | null>(null);
   const [loadingLabel, setLoadingLabel] = useState(false);
@@ -106,6 +135,12 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
   // Simplificar:
   const comentariosParaExibir = comentariosContext || [];
+=======
+
+  const [comentarios, setComentarios] = useState<Comentario[]>([]);
+  const [comentarioTexto, setComentarioTexto] = useState('');
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -148,7 +183,28 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         const fetchedAnuncio = anuncioResponse.data;
         setAnuncio(fetchedAnuncio);
 
+<<<<<<< HEAD
         await addToRecentlyViewed(fetchedAnuncio);
+=======
+        // Pre-fill forms
+        setFormTitulo(fetchedAnuncio.titulo);
+        setFormDescricao(fetchedAnuncio.descricao);
+        setFormPreco(fetchedAnuncio.preco?.toString() || '');
+        setFormImageUrl(fetchedAnuncio.imageUrl);
+        setFormEndereco(fetchedAnuncio.endereco?.logradouro || '');
+        setFormNumero(fetchedAnuncio.endereco?.numero || '');
+        setFormCidade(fetchedAnuncio.endereco?.cidade || '');
+        setFormEstado(fetchedAnuncio.endereco?.estado || '');
+        setFormBairro(fetchedAnuncio.endereco?.bairro || '');
+        setFormCep(fetchedAnuncio.endereco?.cep || '');
+
+        if (fetchedAnuncio.endereco?.latitude && fetchedAnuncio.endereco?.longitude) {
+          setCoords({
+            latitude: Number(fetchedAnuncio.endereco.latitude),
+            longitude: Number(fetchedAnuncio.endereco.longitude),
+          });
+        }
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
 
         // Fetch Anunciante
         if (fetchedAnuncio.userId) {
@@ -158,11 +214,21 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           setAnunciante(userResponse.data);
         }
 
+<<<<<<< HEAD
         // Carregar comentários UMA VEZ
         await loadComentarios(anuncioId);
 
       } catch (error) {
         console.error("Error fetching data:", error);
+=======
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: 'Não foi possível carregar os dados.',
+        });
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
         setAnuncio(null);
       } finally {
         setLoading(false);
@@ -170,8 +236,18 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     };
 
     loadData();
+<<<<<<< HEAD
     // REMOVE loadComentarios da dependency array
   }, [anuncioId, idToken]); // <-- REMOVA loadComentarios DAQUI
+=======
+  }, [anuncioId, idToken]);
+
+  // Carregar comentários quando abrir a tela ou trocar o anuncioId
+  useEffect(() => {
+    if (!anuncioId) return;
+    fetchComentarios();
+  }, [anuncioId]);
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
 
   const headersAuth = idToken
     ? { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' }
@@ -194,6 +270,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
     }
   };
 
+<<<<<<< HEAD
   const fetchPredictedLabel = async () => {
     if (!formAreaConstruida || !formAreaTerreno || !formAnoConstrucao || !formPadraoAcabamento || !formTipoImovel || !formBairro || !coords) {
       Alert.alert('Dados incompletos', 'Preencha todas as informações do imóvel.');
@@ -310,6 +387,76 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         },
       },
     ]);
+=======
+  const enrichComentarios = async (lista: Comentario[]) => {
+    const enriched = await Promise.all(
+      lista.map(async c => {
+        const u = await fetchUserForComment(c.userId);
+        return { ...c, userName: u.nome || 'Usuário', userPhoto: u.foto };
+      })
+    );
+    setComentarios(enriched);
+  };
+
+  const fetchComentarios = async () => {
+    if (!anuncioId) return;
+    const url = `${BASE_URL}/anuncios/${anuncioId}/comentarios`;
+    console.log('URL comentários:', url);
+    try {
+      const { data } = await axios.get<Comentario[]>(url);
+      await enrichComentarios(data);
+    } catch (e:any) {
+      console.log('Erro ao listar comentários:', e?.response?.status, e?.response?.data || e.message);
+    }
+  };
+
+  const criarComentario = async () => {
+    if (!comentarioTexto.trim()) return;
+    try {
+      await axios.post(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios`,
+        { texto: comentarioTexto.trim() },
+        { headers: headersAuth }
+      );
+      setComentarioTexto('');
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao criar comentário:', e);
+    }
+  };
+
+  const iniciarEdicao = (c: Comentario) => {
+    setEditandoId(c.id);
+    setComentarioTexto(c.texto);
+  };
+
+  const salvarEdicao = async () => {
+    if (!editandoId) return;
+    try {
+      await axios.put(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios/${editandoId}`,
+        { texto: comentarioTexto.trim() },
+        { headers: headersAuth }
+      );
+      setEditandoId(null);
+      setComentarioTexto('');
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao atualizar comentário:', e);
+    }
+  };
+
+  const excluirComentario = async (id: string) => {
+    try {
+      await axios.delete(
+        `${BASE_URL}/anuncios/${anuncioId}/comentarios/${id}`,
+        { headers: headersAuth }
+      );
+      await fetchComentarios();
+    } catch (e) {
+      console.log('Erro ao excluir comentário:', e);
+    }
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
   };
 
   const isOwner = anuncio && currentUser && anuncio.userId === currentUser.uid;
@@ -840,7 +987,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
       {!loading && (
         <FlatList
+<<<<<<< HEAD
           data={comentariosParaExibir} // <-- USE comentariosParaExibir
+=======
+          data={comentarios}
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View>
@@ -935,6 +1086,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                         onChangeText={setFormCep}
                         keyboardType="numeric"
                       />
+<<<<<<< HEAD
                       <TextInput
                         style={styles.input}
                         placeholder="Área Construída (m²)"
@@ -1000,10 +1152,13 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                           ))}
                         </View>
                       </View>
+=======
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
                     </>
                   ) : (
                     <>
                       <Text style={styles.priceText}>
+<<<<<<< HEAD
                         R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : '0'}
                       </Text>
                       <Text style={styles.descriptionText}>
@@ -1067,6 +1222,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
 
                         </View>
                       )}
+=======
+                        R$ {anuncio?.preco ? anuncio.preco.toLocaleString('pt-BR') : ''}
+                      </Text>
+                      <Text style={styles.descriptionText}>{anuncio?.descricao}</Text>
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
                     </>
                   )}
                 </View>
@@ -1083,7 +1243,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                         <Text style={styles.anuncianteName}>{anunciante.nome}</Text>
                         <Text style={styles.anuncianteContato}>{anunciante.telefone}</Text>
                       </View>
+<<<<<<< HEAD
                       <TouchableOpacity style={styles.contactButton} onPress={handleContact}>
+=======
+                      <TouchableOpacity style={styles.contactButton}>
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
                         <Text style={styles.contactButtonText}>Contactar</Text>
                       </TouchableOpacity>
                     </View>
@@ -1098,7 +1262,11 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                     </Text>
                   )}
                   <View style={styles.mapContainer}>
+<<<<<<< HEAD
                     {coords && coords.latitude && coords.longitude ? (
+=======
+                    {coords ? (
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
                       <MapView
                         style={styles.mapImage}
                         initialRegion={{
@@ -1107,6 +1275,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                           latitudeDelta: 0.01,
                           longitudeDelta: 0.01,
                         }}
+<<<<<<< HEAD
                         scrollEnabled={false}
                         zoomEnabled={false}
                       >
@@ -1122,10 +1291,18 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                         <MaterialCommunityIcons name="map-outline" size={40} color="#ccc" />
                         <Text style={styles.noMapText}>Mapa não disponível</Text>
                       </View>
+=======
+                      >
+                        <Marker coordinate={coords} />
+                      </MapView>
+                    ) : (
+                      <Text>Mapa não disponível</Text>
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
                     )}
                   </View>
                 </View>
 
+<<<<<<< HEAD
                 <Text style={styles.sectionTitle}>Comentários</Text>
               </View>
             </View>
@@ -1172,6 +1349,39 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
                   >
                     <MaterialCommunityIcons name="trash-can" size={18} color="#FF3B30" />
                     <Text style={styles.deleteButtonText}>Deletar</Text>
+=======
+                <Text style={{ fontWeight: '600', fontSize: 16, marginTop: 16 }}>Comentários</Text>
+              </View>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.commentItem}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Image
+                  source={{ uri: item.userPhoto || 'https://via.placeholder.com/40' }}
+                  style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '600' }}>{item.userName || 'Usuário'}</Text>
+                  <Text style={styles.commentText}>{item.texto}</Text>
+                </View>
+                {item.userId === currentUser?.uid && (
+                  <TouchableOpacity onPress={() => iniciarEdicao(item)} style={{ padding: 4 }}>
+                    <MaterialCommunityIcons name="dots-vertical" size={22} color="#555" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {item.userId === currentUser?.uid && editandoId === item.id && (
+                <View style={styles.commentActions}>
+                  <TouchableOpacity onPress={() => salvarEdicao()}>
+                    <Text style={styles.editBtn}>Salvar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => excluirComentario(item.id)}>
+                    <Text style={styles.deleteBtn}>Excluir</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setEditandoId(null); setComentarioTexto(''); }}>
+                    <Text style={{ color: '#666' }}>Cancelar</Text>
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
                   </TouchableOpacity>
                 </View>
               )}
@@ -1179,6 +1389,25 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
           )}
           ListFooterComponent={
             <View style={{ paddingHorizontal: 16, paddingBottom: 120 }}>
+<<<<<<< HEAD
+=======
+              <View style={styles.commentForm}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder={editandoId ? 'Editar comentário...' : 'Escreva um comentário...'}
+                  value={comentarioTexto}
+                  onChangeText={setComentarioTexto}
+                />
+                <TouchableOpacity
+                  style={styles.commentSend}
+                  onPress={editandoId ? salvarEdicao : criarComentario}
+                  disabled={!comentarioTexto.trim()}
+                >
+                  <Text style={{ color: 'white' }}>{editandoId ? 'Salvar' : 'Enviar'}</Text>
+                </TouchableOpacity>
+              </View>
+
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
               {isEditing && (
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity onPress={handleSave} style={[styles.button, styles.saveButton]}>
@@ -1206,6 +1435,7 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
         </TouchableOpacity>
       )}
 
+<<<<<<< HEAD
       {/* ADICIONE ESTE FAB PARA COMENTÁRIOS */}
       {!isEditing && anuncioId && (
         <TouchableOpacity 
@@ -1219,6 +1449,8 @@ export default function AnuncioDetail({ route, navigation }: AnuncioDetailProps)
       {renderModalComentario()}
       {renderModalEdicaoComentario()}
 
+=======
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
       <BottomNav />
       <Toast />
     </SafeAreaView>
@@ -1387,6 +1619,49 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  anuncianteCard: {
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  anuncianteInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  anuncianteAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  anuncianteTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  anuncianteName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  anuncianteContato: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  contactButton: {
+    backgroundColor: '#137fec',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
   locationCard: {
     marginTop: 16,
     borderRadius: 12,
@@ -1506,6 +1781,7 @@ const styles = StyleSheet.create({
   deleteBtn: { color: "#FF3B30" },
   commentForm: { flexDirection: "row", marginTop: 16, alignItems: "center" },
   commentInput: { flex: 1, borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10 },
+<<<<<<< HEAD
   commentSend: { 
     marginLeft: 8, 
     backgroundColor: "#007AFF", 
@@ -1778,4 +2054,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 10,
   },
+=======
+  commentSend: { marginLeft: 8, backgroundColor: "#007AFF", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
 });

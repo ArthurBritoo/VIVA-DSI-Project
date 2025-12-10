@@ -24,6 +24,7 @@ type RootStackParamList = {
 export default function Perfil() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { currentUser, setCurrentUser } = useUserContext();
+<<<<<<< HEAD
   const { favorites, removeFavorite, setFavoritesOrder, loading, reloadFavorites } = useFavorites();
   const [isReordering, setIsReordering] = useState(false);
   const [localFavorites, setLocalFavorites] = useState<Anuncio[]>([]);
@@ -37,6 +38,12 @@ export default function Perfil() {
   useFocusEffect(
     React.useCallback(() => {
       console.log("Perfil: Screen focused, reloading favorites");
+=======
+  const { favorites, removeFavorite, loading, reloadFavorites } = useFavorites();
+
+  useFocusEffect(
+    React.useCallback(() => {
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
       reloadFavorites();
     }, [])
   );

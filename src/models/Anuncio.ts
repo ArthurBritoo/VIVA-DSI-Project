@@ -10,6 +10,7 @@ export interface Endereco {
 }
 
 export interface Anuncio {
+<<<<<<< HEAD
   id?: string;
   titulo: string;
   descricao: string;
@@ -25,3 +26,24 @@ export interface Anuncio {
   cluster?: number;
   prediction?: string;
 }
+=======
+    id?: string;
+    titulo: string;
+    descricao: string;
+    preco: number;
+    imageUrl: string;
+    userId: string;
+    createdAt?: Date;
+    endereco?: {
+        logradouro: string;
+        numero: string;
+        bairro: string;
+        cidade: string;
+        estado: string;
+        cep: string;
+        latitude?: number;
+        longitude?: number;
+    };
+  }
+  
+>>>>>>> cf9c1f2cecfc6cf5c9e3428ba82ae12755536cdb
